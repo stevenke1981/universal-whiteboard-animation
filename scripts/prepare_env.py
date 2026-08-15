@@ -12,7 +12,7 @@ from pathlib import Path
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 VENV_ROOT = SKILL_ROOT / ".venv"
 REQUIREMENTS = SKILL_ROOT / "requirements.txt"
-REQUIRED_IMPORTS = ("cv2", "numpy", "PIL", "yaml", "jsonschema")
+REQUIRED_IMPORTS = ("cv2", "numpy", "PIL", "fontTools", "yaml", "jsonschema")
 
 
 def interpreter_path(root: Path) -> Path:

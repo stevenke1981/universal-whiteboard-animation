@@ -3,82 +3,237 @@
   "$id": "https://example.local/universal-whiteboard/annotation.schema.json",
   "title": "Universal Whiteboard Scene Annotation",
   "type": "object",
-  "required": ["sceneId", "canvas", "sceneDurationMs", "elements"],
+  "required": [
+    "sceneId",
+    "canvas",
+    "sceneDurationMs",
+    "elements"
+  ],
   "properties": {
-    "version": {"type": "integer", "minimum": 1, "default": 1},
-    "sceneId": {"type": "string", "minLength": 1},
-    "storyBasis": {"type": "string"},
-    "coreMessage": {"type": "string"},
-    "background": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
-    "finalHoldMs": {"type": "integer", "minimum": 0, "default": 700},
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "sceneId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "storyBasis": {
+      "type": "string"
+    },
+    "coreMessage": {
+      "type": "string"
+    },
+    "background": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "finalHoldMs": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 700
+    },
     "canvas": {
       "type": "object",
-      "required": ["width", "height"],
+      "required": [
+        "width",
+        "height"
+      ],
       "properties": {
-        "width": {"type": "integer", "minimum": 2},
-        "height": {"type": "integer", "minimum": 2}
+        "width": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 2
+        }
       },
       "additionalProperties": false
     },
-    "sceneDurationMs": {"type": "integer", "minimum": 1},
+    "sceneDurationMs": {
+      "type": "integer",
+      "minimum": 1
+    },
     "elements": {
       "type": "array",
       "minItems": 1,
-      "items": {"$ref": "#/$defs/element"}
+      "items": {
+        "$ref": "#/$defs/element"
+      }
+    },
+    "strokeOrderRules": {
+      "type": "string"
+    },
+    "strokeDataSource": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "writingSystem": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "$defs": {
     "region": {
       "type": "object",
-      "required": ["x", "y", "width", "height"],
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
       "properties": {
-        "x": {"type": "integer", "minimum": 0},
-        "y": {"type": "integer", "minimum": 0},
-        "width": {"type": "integer", "minimum": 1},
-        "height": {"type": "integer", "minimum": 1}
+        "x": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
       },
       "additionalProperties": false
     },
     "point": {
       "type": "array",
-      "prefixItems": [{"type": "number"}, {"type": "number"}],
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
       "minItems": 2,
       "maxItems": 2
     },
     "element": {
       "type": "object",
-      "required": ["id", "label", "sequence", "region", "reveal"],
+      "required": [
+        "id",
+        "label",
+        "sequence",
+        "region",
+        "reveal"
+      ],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "label": {"type": "string", "minLength": 1},
-        "sequence": {"type": "integer", "minimum": 1},
-        "type": {"type": "string", "default": "object"},
-        "narrativeRole": {"type": "string"},
-        "subtitle": {"type": "string"},
-        "subjectIds": {"type": "array", "items": {"type": "string"}, "default": []},
-        "zIndex": {"type": "integer", "default": 0},
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "type": {
+          "type": "string",
+          "default": "object"
+        },
+        "narrativeRole": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "subjectIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "zIndex": {
+          "type": "integer",
+          "default": 0
+        },
         "maskPolicy": {
           "type": "string",
-          "enum": ["subtract-later", "explicit", "none"],
+          "enum": [
+            "subtract-later",
+            "explicit",
+            "none"
+          ],
           "default": "subtract-later"
         },
-        "region": {"$ref": "#/$defs/region"},
+        "region": {
+          "$ref": "#/$defs/region"
+        },
         "reveal": {
           "type": "object",
-          "required": ["startMs", "durationMs"],
+          "required": [
+            "startMs",
+            "durationMs"
+          ],
           "properties": {
             "direction": {
               "type": "string",
-              "enum": ["left_to_right", "right_to_left", "top_to_bottom", "bottom_to_top", "radial", "auto"],
+              "enum": [
+                "left_to_right",
+                "right_to_left",
+                "top_to_bottom",
+                "bottom_to_top",
+                "radial",
+                "auto"
+              ],
               "default": "auto"
             },
-            "startMs": {"type": "integer", "minimum": 0},
-            "durationMs": {"type": "integer", "minimum": 1},
-            "maskPaddingPx": {"type": "integer", "minimum": 0, "default": 0},
+            "startMs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "durationMs": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maskPaddingPx": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
             "protectedRegions": {
               "type": "array",
-              "items": {"$ref": "#/$defs/region"},
+              "items": {
+                "$ref": "#/$defs/region"
+              },
               "default": []
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "write",
+                "ink-color"
+              ],
+              "default": "ink-color"
+            },
+            "maskPath": {
+              "type": "string",
+              "minLength": 1
+            },
+            "brushRadiusPx": {
+              "type": "number",
+              "exclusiveMinimum": 0
             }
           },
           "additionalProperties": true
@@ -86,11 +241,72 @@
         "handPath": {
           "type": "object",
           "properties": {
-            "start": {"$ref": "#/$defs/point"},
-            "end": {"$ref": "#/$defs/point"},
-            "easing": {"type": "string", "default": "easeInOut"}
+            "start": {
+              "$ref": "#/$defs/point"
+            },
+            "end": {
+              "$ref": "#/$defs/point"
+            },
+            "easing": {
+              "type": "string",
+              "default": "easeInOut"
+            },
+            "points": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "$ref": "#/$defs/point"
+              }
+            },
+            "coordinateSpace": {
+              "type": "string",
+              "enum": [
+                "canvas"
+              ],
+              "default": "canvas"
+            },
+            "penLifts": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "default": []
+            }
           },
           "additionalProperties": true
+        },
+        "strokeMask": {
+          "type": "string",
+          "minLength": 1
+        },
+        "strokeSource": {
+          "type": "string",
+          "minLength": 1
+        },
+        "strokeOrderConfidence": {
+          "type": "string",
+          "enum": [
+            "authoritative",
+            "approximate",
+            "unknown"
+          ]
+        },
+        "character": {
+          "type": "string",
+          "minLength": 1
+        },
+        "characterIndex": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "strokeIndex": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "strokeCount": {
+          "type": "integer",
+          "minimum": 1
         }
       },
       "additionalProperties": true
