@@ -1,4 +1,4 @@
 interface:
-  display_name: "通用 SRT 白板動畫"
-  short_description: "把字幕或文案轉成可替換主體、可驗收、可批次輸出的白板手繪動畫"
-  default_prompt: "使用 $universal-whiteboard-animation 將這份字幕製作成白板動畫；主體依內容決定，不固定使用猴子。"
+  display_name: "通用白板動畫與中文筆順"
+  short_description: "把字幕或文案轉成可替換主體的白板動畫，並依正確筆順逐筆寫中文字"
+  default_prompt: "使用 $universal-whiteboard-animation 將內容製作成白板動畫；主體依內容決定。需要中文字時，使用權威 strokes/medians 依正確筆順逐筆書寫，不可只靠字型輪廓猜測。"

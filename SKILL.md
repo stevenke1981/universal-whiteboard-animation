@@ -1,6 +1,6 @@
 ---
 name: universal-whiteboard-animation
-description: 將 SRT、VTT、逐字稿或短影音文案轉成可替換人物／動物／物件／產品／抽象概念的白板手繪動畫。流程包含語意分幕、可替換主體設定、統一視覺提示詞、像素級區域標注、遮罩防洩漏、連續筆跡渲染、驗收、音訊與字幕完稿。當使用者要求「SRT 做白板動畫」「字幕轉手繪動畫」「逐字稿做解說動畫」「讓角色可替換」「製作白板短片」時觸發。
+description: 將 SRT、VTT、逐字稿或短影音文案轉成可替換人物／動物／物件／產品／抽象概念的白板手繪動畫，並可依權威筆畫資料與正確筆順逐筆寫中文字。流程包含語意分幕、主體設定、像素級標注、遮罩防洩漏、連續筆跡、中文 stroke mask／median 運筆、驗收、音訊與字幕完稿。當使用者要求「SRT 做白板動畫」「字幕轉手繪動畫」「逐字稿做解說動畫」「寫中文字」「中文筆順動畫」「製作白板短片」時觸發。
 ---
 
 # 通用 SRT 白板動畫 Skill
@@ -15,6 +15,7 @@ description: 將 SRT、VTT、逐字稿或短影音文案轉成可替換人物／
 4. **未開始的內容不可提前露出。** 每個元素的允許遮罩由 `region`、後續元素與 `protectedRegions` 共同決定。
 5. **持久畫布與連續筆跡。** 已完成的內容保留；筆尖沿 grid 或 skeleton 路徑移動，先落墨、再添彩。
 6. **可驗收。** 每幕在渲染前必須通過結構、座標、順序、時序、遮罩與結尾停留檢查。
+7. **中文筆順不可只靠字型輪廓猜測。** 正確模式以逐字 `strokes` 陣列決定筆順、`medians` 決定起筆與運筆方向；缺資料時只能明確標記為近似。
 
 ## 支援輸入
 
@@ -108,7 +109,7 @@ python scripts/parse_srt.py <字幕.srt> \
 - `technical-diagram`：乾淨節點、連線、裝置輪廓。
 - `brand-custom`：依 `visual` 自訂色與材質。
 
-圖片必須保留足夠留白與元素間距。預設不在源圖內生成文字；需要文字時改由字幕或後製圖層處理。
+圖片必須保留足夠留白與元素間距。預設不在一般插畫源圖內生成文字；需要「逐筆寫中文字」時，改用第 7 節產生獨立 `strokeMask` 與 `handPath.points`，不可把 AI 圖片中的字當成可驗證筆順。
 
 ### 4. 建立像素級標注
 
@@ -158,31 +159,57 @@ assets/preview.html
 
 預覽台可載入資料夾或單一圖像／標注，調整區域、順序、時序、方向、字幕與主體綁定，並保存／下載 JSON。
 
-### 7. 中文筆順書寫
+### 7. 依正確筆順逐筆寫中文字
 
-需要「逐筆畫書寫中文字」時，使用 `scripts/chinese_stroke_split.py` 把文字拆成逐筆元素（type=`text-stroke`），產出場景圖與 annotation，再走渲染流程：
+需要逐筆寫中文字時，使用 `scripts/chinese_stroke_split.py`。**不可把字型 contour
+數量或矩形位置排序當成正確筆順。** TTF/TTC 只保存字面外框，正式模式必須使用含
+`strokes` 與 `medians` 的逐字資料：
 
 ```bash
 python scripts/chinese_stroke_split.py \
-  --text "日日是好日！" \
-  --font C:/Windows/Fonts/kaiu.ttf \
+  --text "日日是好日" \
+  --stroke-data /path/to/hanzi-writer-data \
+  --strict-stroke-order \
   --size 250 --width 1920 --height 1080 \
   --scene-id scene-01-strokes --out-dir .
 ```
 
+也可用 `--stroke-source data`。嚴格模式下，任何漢字缺少資料都必須失敗，不可靜默
+改用猜測。`--stroke-source auto` 可資料優先並允許 fallback，但所有 fallback element
+必須標記：
+
+```json
+{
+  "strokeOrderConfidence": "approximate",
+  "strokeSource": "font-glyph-fallback"
+}
+```
+
+正確中文書寫遵守下列不變條件：
+
+1. 原字依輸入 Unicode 使用，不自動簡繁轉換或替換異體字。
+2. 文字依原字序由左至右排版。
+3. 單字依 `strokes` 陣列順序逐筆書寫；資料順序優先於通用筆順口訣。
+4. 每筆依對應 `medians` 第一點走到最後一點，不得為縮短路徑而反向。
+5. 橫折、豎鉤、撇折等複合筆畫在同一 element 內連續書寫，中途不抬筆。
+6. 每一筆使用獨立 `strokeMask`，交叉時只揭示當前筆畫，不可洩漏後續筆畫。
+7. 「先上後下、先左後右、先橫後豎、先撇後捺、先外後內再封口、先中間後兩邊」只作人工驗收提示，不可取代逐字資料。
+8. 權威 element 必須同時有 `strokeMask`、`handPath.points` 與 `strokeOrderConfidence: authoritative`。
+
 輸出：
 
-- `scenes/<scene-id>.png`：整句最終畫面（PIL 依輪廓填充）。
-- `scenes/<scene-id>.annotation.json`：逐筆元素（`reveal` 依時序），可直接 `validate_annotation.py` 驗證。
-- `build/strokes/<scene-id>-stroke-NN.png`：單筆畫檢查圖。
+```text
+scenes/<scene-id>.png
+scenes/<scene-id>.annotation.json
+build/strokes/<scene-id>-stroke-NNN.png
+```
 
-筆順近似規則（楷體相連筆畫會合併成「筆畫組」）：
+渲染器在 `reveal.mode: write` 或 `type: text-stroke` 時，會把全部時長用於沿 median
+書寫，不再執行一般插畫的 `ink → color` 兩階段。驗證器會檢查 mask 是否存在、尺寸
+是否與 canvas 一致、可見像素是否在 region 內，以及 median 是否至少有兩個畫布內點。
 
-- 從左到右、從上到下（`x0`、`y0` 排序）。
-- 先橫後豎（`w ≥ h` 優先於 `w < h`）。
-- 橫豎相交、先橫後豎；左右結構、先左後右；上下結構、先上後下。
-
-字型需求：需要能拆出輪廓的 TTF（Windows 標楷體 `kaiu.ttf` 已驗證）；輪廓解析使用 freetype-py（`FT_LOAD_NO_SCALE` 取字體單位，再依 `size/upem` 縮放）。若系統缺少 freetype 請先 `python scripts/prepare_env.py`。
+筆畫資料不隨本 Skill 重新散布；若使用 Hanzi Writer Data 或 Make Me a Hanzi 資料，
+必須遵守並保留其各自授權。完整說明見 `docs/CHINESE_WRITING.md`。
 
 ### 8. 渲染單幕
 
@@ -200,7 +227,7 @@ python scripts/render_whiteboard.py \
 --fps 15 --cap-long-edge 640
 ```
 
-全清成片建議 30 fps、長邊 1080 或 1920。`--cap-long-edge`（或專案 `render.cap_long_edge`）大於等於畫布長邊才會保留原解析度（1920×1080 畫布請設 1920，1280×720 請設 1280；0 不縮放）；低於畫布長邊會縮小輸出。線稿不清楚時用 `grid`；輪廓清楚時用 `skeleton`。
+全清成片建議 30 fps。`cap_long_edge` 必須大於等於畫布長邊才會保留原解析度：1920×1080 設 1920、1280×720 設 1280，`0` 表示不縮放；低成本預覽可設 640。線稿不清楚時用 `grid`；輪廓清楚時用 `skeleton`。中文字權威筆畫會優先使用 `handPath.points`，不受 grid／skeleton 的反向排序影響。
 
 ### 9. 批次與完稿
 
@@ -238,7 +265,8 @@ python scripts/finalize_video.py \
 - 預設一支筆依序作畫；元素時間不重疊。
 - 每元素 `ink:color` 預設 2:1，可由專案覆寫。
 - 最後元素完成後至少保留 `finalHoldMs`，預設 700ms。
-- `direction` 主要控制上色與預覽代理；真實落墨由 grid／skeleton 路徑決定。
+- 一般插畫的 `direction` 主要控制上色與預覽代理；真實落墨由 grid／skeleton 路徑決定。
+- 中文 `text-stroke` 的順序由 `sequence/strokeIndex`，方向由 `handPath.points` 第一點至最後一點決定；不得反向。
 
 ## 自動驗收
 
@@ -250,6 +278,7 @@ python scripts/finalize_video.py \
 4. 每幕最後完整顯示已標注內容，且停留時間符合設定。
 5. 多幕順序與字幕分幕一致。
 6. 有音訊時，輸出時長差不得超過 250ms；字幕時間不得超過輸出總長。
+7. 中文字至少抽查一個交叉筆畫：前一筆完成時，後一筆的專屬區域仍須保持背景；每筆運動方向符合 median。
 
 執行整包驗收：
 
