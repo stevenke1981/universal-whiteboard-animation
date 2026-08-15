@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "sceneId": "scene-02",
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  },
+  "background": "#F5EBD7",
+  "storyBasis": "使用者測試原型，團隊依回饋迭代並完成可用成果。",
+  "coreMessage": "使用者測試原型，團隊依回饋迭代並完成可用成果。",
+  "sceneDurationMs": 6000,
+  "finalHoldMs": 700,
+  "elements": [
+    {
+      "id": "user",
+      "label": "實際操作的使用者",
+      "sequence": 1,
+      "type": "character",
+      "narrativeRole": "測試與回饋來源",
+      "subtitle": "使用者實際操作，找出最重要的問題。",
+      "subjectIds": [
+        "user"
+      ],
+      "maskPolicy": "explicit",
+      "region": {
+        "x": 25,
+        "y": 110,
+        "width": 340,
+        "height": 545
+      },
+      "reveal": {
+        "direction": "top_to_bottom",
+        "startMs": 0,
+        "durationMs": 1400,
+        "protectedRegions": []
+      }
+    },
+    {
+      "id": "tested-prototype",
+      "label": "接受測試的原型",
+      "sequence": 2,
+      "type": "product",
+      "narrativeRole": "被檢驗的方案",
+      "subtitle": "使用者實際操作，找出最重要的問題。",
+      "subjectIds": [
+        "prototype"
+      ],
+      "maskPolicy": "explicit",
+      "region": {
+        "x": 400,
+        "y": 80,
+        "width": 445,
+        "height": 570
+      },
+      "reveal": {
+        "direction": "left_to_right",
+        "startMs": 1550,
+        "durationMs": 1550,
+        "protectedRegions": []
+      }
+    },
+    {
+      "id": "iteration-result",
+      "label": "迭代後的完成結果",
+      "sequence": 3,
+      "type": "result",
+      "narrativeRole": "回饋、調整與完成",
+      "subtitle": "最後依回饋調整流程，讓成果真正能被使用。",
+      "subjectIds": [
+        "creator",
+        "result"
+      ],
+      "maskPolicy": "explicit",
+      "region": {
+        "x": 825,
+        "y": 50,
+        "width": 410,
+        "height": 610
+      },
+      "reveal": {
+        "direction": "bottom_to_top",
+        "startMs": 3300,
+        "durationMs": 1700,
+        "protectedRegions": []
+      }
+    }
+  ]
+}

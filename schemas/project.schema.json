@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/universal-whiteboard/project.schema.json",
+  "title": "Universal Whiteboard Project",
+  "type": "object",
+  "required": ["version", "project", "workflow", "paths", "canvas", "subject_profile", "render"],
+  "properties": {
+    "version": {"type": "integer", "minimum": 1},
+    "project": {
+      "type": "object",
+      "required": ["name", "language"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "language": {"type": "string", "default": "zh-TW"},
+        "root": {"type": "string", "default": "."}
+      },
+      "additionalProperties": true
+    },
+    "workflow": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": {"enum": ["auto", "checkpoint", "plan-only", "validate-only"]},
+        "overwrite": {"type": "boolean", "default": false}
+      },
+      "additionalProperties": true
+    },
+    "subject_profile": {
+      "type": "object",
+      "required": ["mode", "subjects"],
+      "properties": {
+        "mode": {"enum": ["none", "single", "ensemble", "object", "concept", "adaptive"]},
+        "default_id": {"type": ["string", "null"]},
+        "subjects": {"type": "object", "additionalProperties": {"$ref": "#/$defs/subject"}}
+      },
+      "additionalProperties": true
+    },
+    "canvas": {
+      "type": "object",
+      "required": ["width", "height", "fps", "background"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 2},
+        "height": {"type": "integer", "minimum": 2},
+        "fps": {"type": "integer", "minimum": 1, "maximum": 120},
+        "background": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"}
+      },
+      "additionalProperties": true
+    },
+    "paths": {"type": "object"},
+    "render": {"type": "object"},
+    "scenes": {"type": "array"},
+    "assumptions": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "subject": {
+      "type": "object",
+      "required": ["kind", "replaceable"],
+      "properties": {
+        "kind": {"type": "string"},
+        "name": {"type": "string"},
+        "replaceable": {"type": "boolean"},
+        "appearance": {"type": "object"},
+        "identity_lock": {"type": "array", "items": {"type": "string"}},
+        "negative_constraints": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

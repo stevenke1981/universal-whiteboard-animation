@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "sceneId": "scene-01",
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  },
+  "background": "#F5EBD7",
+  "storyBasis": "設計師把問題化成想法，團隊再做成可測試原型。",
+  "coreMessage": "設計師把問題化成想法，團隊再做成可測試原型。",
+  "sceneDurationMs": 6000,
+  "finalHoldMs": 700,
+  "elements": [
+    {
+      "id": "designer",
+      "label": "提出想法的設計師",
+      "sequence": 1,
+      "type": "character",
+      "narrativeRole": "問題與想法的起點",
+      "subtitle": "設計師先把問題整理成一個清楚的想法。",
+      "subjectIds": [
+        "creator"
+      ],
+      "maskPolicy": "explicit",
+      "region": {
+        "x": 35,
+        "y": 115,
+        "width": 355,
+        "height": 535
+      },
+      "reveal": {
+        "direction": "top_to_bottom",
+        "startMs": 0,
+        "durationMs": 1450,
+        "protectedRegions": []
+      }
+    },
+    {
+      "id": "idea",
+      "label": "被整理出的想法",
+      "sequence": 2,
+      "type": "concept",
+      "narrativeRole": "核心概念具象化",
+      "subtitle": "設計師先把問題整理成一個清楚的想法。",
+      "subjectIds": [
+        "idea"
+      ],
+      "maskPolicy": "explicit",
+      "region": {
+        "x": 405,
+        "y": 90,
+        "width": 355,
+        "height": 390
+      },
+      "reveal": {
+        "direction": "radial",
+        "startMs": 1600,
+        "durationMs": 1350,
+        "protectedRegions": []
+      }
+    },
+    {
+      "id": "prototype",
+      "label": "可測試的原型",
+      "sequence": 3,
+      "type": "product",
+      "narrativeRole": "想法轉成可操作成果",
+      "subtitle": "團隊再把想法組成可以測試的原型。",
+      "subjectIds": [
+        "prototype"
+      ],
+      "maskPolicy": "explicit",
+      "region": {
+        "x": 780,
+        "y": 90,
+        "width": 440,
+        "height": 545
+      },
+      "reveal": {
+        "direction": "left_to_right",
+        "startMs": 3150,
+        "durationMs": 1750,
+        "protectedRegions": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+version: 1
+project:
+  name: universal-whiteboard-demo
+  language: zh-TW
+  root: .
+workflow:
+  mode: auto
+  overwrite: false
+input:
+  subtitles: input/story.srt
+  audio: null
+  script: null
+paths:
+  scenes: scenes
+  build: build
+  output: output
+segmentation:
+  target_sec: 22
+  min_sec: 8
+  max_sec: 35
+  prefer_punctuation: true
+  gap_sec: 1.2
+canvas:
+  width: 1920
+  height: 1080
+  fps: 30
+  background: "#F5EBD7"
+subject_profile:
+  mode: adaptive
+  default_id: null
+  subjects: {}
+visual:
+  preset: minimal-paper
+  line_color: "#343434"
+  accent_colors: ["#D95D39", "#E5A93D", "#3B82B8"]
+  source_text_policy: subtitles-only
+render:
+  ink_path: skeleton
+  color_fill: wipe
+  pointer: pen
+  cap_long_edge: 1080
+  grid_edge: 10
+  ink_color_ratio: [2, 1]
+  final_hold_ms: 700
+  mask_policy: subtract-later
+  reveal_unassigned: false
+  h264: true
+finalize:
+  merge: true
+  audio: null
+  subtitles: null
+  subtitle_mode: none
+scenes: []
+assumptions: []

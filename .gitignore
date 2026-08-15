@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.log
+*.tmp
+*.bak
+*.raw.mp4
+*_raw.mp4
+output/
+build/
+.DS_Store
+Thumbs.db

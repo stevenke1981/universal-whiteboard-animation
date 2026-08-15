@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Universal Whiteboard 標注預覽台</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #17191d;
+      --panel: #22252b;
+      --panel-2: #2c3037;
+      --text: #f4f4f1;
+      --muted: #a8adb7;
+      --accent: #77a8ff;
+      --danger: #ff8d87;
+      --line: #454b56;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: Inter, "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+    body { display: grid; grid-template-rows: auto 1fr; background: var(--bg); color: var(--text); overflow: hidden; }
+    header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); background: #111317; }
+    button, select, input, textarea { font: inherit; }
+    button { border: 1px solid var(--line); background: var(--panel-2); color: var(--text); padding: 7px 10px; border-radius: 7px; cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: #315d9e; }
+    button.danger { color: #ffd0cd; border-color: #824d4a; }
+    .status { margin-left: auto; color: var(--muted); font-size: 13px; max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    main { min-height: 0; display: grid; grid-template-columns: minmax(520px, 1fr) 360px; }
+    .workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: 1fr auto; background: #0e1013; }
+    .canvas-wrap { min-height: 0; overflow: auto; display: grid; place-items: center; padding: 20px; }
+    canvas { max-width: 100%; max-height: 100%; box-shadow: 0 16px 60px rgba(0,0,0,.45); background: #f5ebd7; touch-action: none; }
+    .timeline { border-top: 1px solid var(--line); padding: 10px 14px 12px; background: #15171b; display: grid; gap: 7px; }
+    .timeline-row { display: flex; align-items: center; gap: 10px; }
+    input[type="range"] { width: 100%; }
+    .side { min-height: 0; overflow: auto; border-left: 1px solid var(--line); background: var(--panel); padding: 12px; }
+    .section { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+    .section h2 { font-size: 14px; margin: 0; padding: 9px 11px; background: var(--panel-2); }
+    .section-body { padding: 10px; display: grid; gap: 9px; }
+    .scene-list, .element-list { display: grid; gap: 5px; }
+    .scene-item, .element-item { text-align: left; width: 100%; display: grid; gap: 2px; }
+    .scene-item.active, .element-item.active { border-color: var(--accent); background: #2c4770; }
+    .small { color: var(--muted); font-size: 12px; }
+    label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+    input, select, textarea { width: 100%; color: var(--text); background: #15171b; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; }
+    textarea { min-height: 70px; resize: vertical; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pill { padding: 2px 7px; border-radius: 999px; background: #373d47; color: #d7dbe3; font-size: 11px; }
+    .empty { color: var(--muted); padding: 18px 8px; text-align: center; }
+    @media (max-width: 1000px) {
+      main { grid-template-columns: 1fr; }
+      .side { display: none; }
+      .status { max-width: 25vw; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <button id="openFolder" class="primary">開啟場景資料夾</button>
+  <button id="openImage">開啟圖片</button>
+  <button id="openJson">開啟 annotation</button>
+  <button id="save">儲存 JSON</button>
+  <button id="download">下載 JSON</button>
+  <select id="viewMode" title="顯示模式">
+    <option value="edit">完整圖片＋標注框</option>
+    <option value="preview">時序揭示預覽</option>
+  </select>
+  <span class="pill" id="dirty">尚未修改</span>
+  <span class="status" id="status">請開啟資料夾，或分別載入圖片與 annotation。</span>
+  <input id="imageInput" type="file" accept="image/*" hidden />
+  <input id="jsonInput" type="file" accept="application/json,.json" hidden />
+</header>
+<main>
+  <section class="workspace">
+    <div class="canvas-wrap"><canvas id="canvas" width="1280" height="720"></canvas></div>
+    <div class="timeline">
+      <div class="timeline-row">
+        <button id="play">播放</button>
+        <button id="rewind">歸零</button>
+        <input id="time" type="range" min="0" max="6000" value="0" step="10" />
+        <strong id="timeLabel">0.00 / 6.00 秒</strong>
+      </div>
+      <div class="small">編輯模式可拖曳標注框與四角控制點；預覽模式依 startMs、durationMs、direction 顯示矩形代理。</div>
+    </div>
+  </section>
+  <aside class="side">
+    <section class="section">
+      <h2>場景</h2>
+      <div class="section-body"><div id="sceneList" class="scene-list"><div class="empty">尚未載入資料夾</div></div></div>
+    </section>
+    <section class="section">
+      <h2>元素順序</h2>
+      <div class="section-body">
+        <div id="elementList" class="element-list"><div class="empty">尚未載入 annotation</div></div>
+        <div class="actions">
+          <button id="moveUp">上移</button><button id="moveDown">下移</button>
+          <button id="addElement">新增</button><button id="deleteElement" class="danger">刪除</button>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <h2>元素設定</h2>
+      <div id="editor" class="section-body">
+        <label>ID<input id="fId" /></label>
+        <label>顯示名稱<input id="fLabel" /></label>
+        <div class="grid-2">
+          <label>類型<input id="fType" /></label>
+          <label>Mask policy<select id="fMask"><option>subtract-later</option><option>explicit</option><option>none</option></select></label>
+        </div>
+        <label>Subject IDs（逗號分隔）<input id="fSubjects" /></label>
+        <label>敘事作用<input id="fRole" /></label>
+        <label>對應字幕<textarea id="fSubtitle"></textarea></label>
+        <div class="grid-4">
+          <label>X<input id="fX" type="number" min="0" /></label>
+          <label>Y<input id="fY" type="number" min="0" /></label>
+          <label>W<input id="fW" type="number" min="1" /></label>
+          <label>H<input id="fH" type="number" min="1" /></label>
+        </div>
+        <div class="grid-2">
+          <label>開始 ms<input id="fStart" type="number" min="0" /></label>
+          <label>時長 ms<input id="fDuration" type="number" min="1" /></label>
+        </div>
+        <label>揭示方向<select id="fDirection"><option>auto</option><option>left_to_right</option><option>right_to_left</option><option>top_to_bottom</option><option>bottom_to_top</option><option>radial</option></select></label>
+      </div>
+    </section>
+    <section class="section">
+      <h2>場景設定</h2>
+      <div class="section-body">
+        <div class="grid-2">
+          <label>總時長 ms<input id="sceneDuration" type="number" min="1" /></label>
+          <label>結尾停留 ms<input id="finalHold" type="number" min="0" /></label>
+        </div>
+        <label>核心訊息<textarea id="coreMessage"></textarea></label>
+      </div>
+    </section>
+  </aside>
+</main>
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("canvas");
+  const ctx = canvas.getContext("2d");
+  const palette = ["#3f87ff", "#ff6f61", "#36b37e", "#b076ff", "#f2a93b", "#00a9a5"];
+  const state = {
+    image: null,
+    imageName: "",
+    annotation: null,
+    annotationName: "scene.annotation.json",
+    annotationHandle: null,
+    scenes: [],
+    selected: 0,
+    dirty: false,
+    currentMs: 0,
+    playing: false,
+    lastTick: 0,
+    drag: null,
+  };
+
+  function setStatus(message) { $("status").textContent = message; }
+  function setDirty(value = true) {
+    state.dirty = value;
+    $("dirty").textContent = value ? "尚未儲存" : "已儲存";
+    $("dirty").style.background = value ? "#794a30" : "#315c45";
+  }
+  function sceneDuration() { return Math.max(1, Number(state.annotation?.sceneDurationMs || 6000)); }
+  function elements() { return state.annotation?.elements || []; }
+  function selectedElement() { return elements()[state.selected] || null; }
+  function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+  function sortedElements() { return elements().slice().sort((a,b) => (a.sequence || 0) - (b.sequence || 0)); }
+
+  async function fileToImage(file) {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    URL.revokeObjectURL(url);
+    return image;
+  }
+  async function fileToJson(file) { return JSON.parse(await file.text()); }
+
+  function normalizeAnnotation(data) {
+    data.version ??= 1;
+    data.sceneId ??= "scene-01";
+    data.canvas ??= { width: state.image?.naturalWidth || 1280, height: state.image?.naturalHeight || 720 };
+    data.sceneDurationMs ??= 6000;
+    data.finalHoldMs ??= 700;
+    data.elements ??= [];
+    data.elements.forEach((item, index) => {
+      item.id ??= `element-${index + 1}`;
+      item.label ??= `元素 ${index + 1}`;
+      item.sequence = index + 1;
+      item.type ??= "object";
+      item.narrativeRole ??= "";
+      item.subtitle ??= "";
+      item.subjectIds ??= [];
+      item.maskPolicy ??= "subtract-later";
+      item.region ??= { x: 20 + index * 20, y: 20 + index * 20, width: 240, height: 180 };
+      item.reveal ??= { startMs: index * 1200, durationMs: 1000, direction: "auto", protectedRegions: [] };
+      item.reveal.direction ??= "auto";
+      item.reveal.protectedRegions ??= [];
+    });
+    return data;
+  }
+
+  async function loadPair(imageFile, annotationFile, annotationHandle = null) {
+    state.image = await fileToImage(imageFile);
+    state.imageName = imageFile.name;
+    state.annotation = normalizeAnnotation(await fileToJson(annotationFile));
+    state.annotationName = annotationFile.name;
+    state.annotationHandle = annotationHandle;
+    if (state.annotation.canvas.width !== state.image.naturalWidth || state.annotation.canvas.height !== state.image.naturalHeight) {
+      setStatus(`警告：圖片 ${state.image.naturalWidth}×${state.image.naturalHeight} 與 canvas ${state.annotation.canvas.width}×${state.annotation.canvas.height} 不一致。`);
+    } else {
+      setStatus(`${state.imageName} ＋ ${state.annotationName}`);
+    }
+    canvas.width = state.image.naturalWidth;
+    canvas.height = state.image.naturalHeight;
+    state.selected = 0;
+    state.currentMs = 0;
+    setDirty(false);
+    refreshAll();
+  }
+
+  async function openDirectory() {
+    if (!window.showDirectoryPicker) {
+      setStatus("此瀏覽器不支援 File System Access API；請改用『開啟圖片／annotation』。Chrome、Edge 可直接寫回。");
+      return;
+    }
+    const directory = await window.showDirectoryPicker({ mode: "readwrite" });
+    const entries = [];
+    const files = new Map();
+    for await (const [name, handle] of directory.entries()) {
+      if (handle.kind !== "file") continue;
+      files.set(name, handle);
+    }
+    for (const [name, handle] of files) {
+      if (!name.endsWith(".annotation.json")) continue;
+      const stem = name.slice(0, -".annotation.json".length);
+      const imageName = [".png", ".jpg", ".jpeg", ".webp"].map(ext => stem + ext).find(candidate => files.has(candidate));
+      if (!imageName) continue;
+      entries.push({ name: stem, imageHandle: files.get(imageName), annotationHandle: handle });
+    }
+    entries.sort((a,b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    state.scenes = entries;
+    renderSceneList();
+    if (!entries.length) {
+      setStatus("資料夾內找不到『同名圖片＋.annotation.json』配對。");
+      return;
+    }
+    await loadScene(0);
+  }
+
+  async function loadScene(index) {
+    const item = state.scenes[index];
+    if (!item) return;
+    const imageFile = await item.imageHandle.getFile();
+    const annotationFile = await item.annotationHandle.getFile();
+    await loadPair(imageFile, annotationFile, item.annotationHandle);
+    renderSceneList(index);
+  }
+
+  function renderSceneList(activeIndex = state.scenes.findIndex(item => item.annotationHandle === state.annotationHandle)) {
+    const root = $("sceneList");
+    root.innerHTML = "";
+    if (!state.scenes.length) {
+      root.innerHTML = '<div class="empty">未使用資料夾模式</div>';
+      return;
+    }
+    state.scenes.forEach((item, index) => {
+      const button = document.createElement("button");
+      button.className = "scene-item" + (index === activeIndex ? " active" : "");
+      button.innerHTML = `<strong>${item.name}</strong><span class="small">圖片＋標注</span>`;
+      button.onclick = async () => {
+        if (state.dirty && !confirm("目前修改尚未儲存，仍要切換場景嗎？")) return;
+        await loadScene(index);
+      };
+      root.appendChild(button);
+    });
+  }
+
+  function refreshAll() {
+    $("time").max = String(sceneDuration());
+    $("time").value = String(clamp(state.currentMs, 0, sceneDuration()));
+    $("sceneDuration").value = state.annotation?.sceneDurationMs ?? "";
+    $("finalHold").value = state.annotation?.finalHoldMs ?? "";
+    $("coreMessage").value = state.annotation?.coreMessage ?? state.annotation?.storyBasis ?? "";
+    renderElementList();
+    fillEditor();
+    draw();
+  }
+
+  function renderElementList() {
+    const root = $("elementList");
+    root.innerHTML = "";
+    if (!elements().length) {
+      root.innerHTML = '<div class="empty">沒有元素</div>';
+      return;
+    }
+    elements().forEach((item, index) => {
+      const button = document.createElement("button");
+      button.className = "element-item" + (index === state.selected ? " active" : "");
+      button.innerHTML = `<strong>${index + 1}. ${escapeHtml(item.label || item.id)}</strong><span class="small">${item.reveal?.startMs || 0}–${(item.reveal?.startMs || 0) + (item.reveal?.durationMs || 0)} ms · ${escapeHtml((item.subjectIds || []).join(", ") || "無 subject")}</span>`;
+      button.onclick = () => { state.selected = index; refreshAll(); };
+      root.appendChild(button);
+    });
+  }
+
+  function fillEditor() {
+    const item = selectedElement();
+    const disabled = !item;
+    $("editor").querySelectorAll("input,textarea,select").forEach(input => input.disabled = disabled);
+    if (!item) return;
+    $("fId").value = item.id || "";
+    $("fLabel").value = item.label || "";
+    $("fType").value = item.type || "object";
+    $("fMask").value = item.maskPolicy || "subtract-later";
+    $("fSubjects").value = (item.subjectIds || []).join(", ");
+    $("fRole").value = item.narrativeRole || "";
+    $("fSubtitle").value = item.subtitle || "";
+    $("fX").value = item.region.x;
+    $("fY").value = item.region.y;
+    $("fW").value = item.region.width;
+    $("fH").value = item.region.height;
+    $("fStart").value = item.reveal.startMs;
+    $("fDuration").value = item.reveal.durationMs;
+    $("fDirection").value = item.reveal.direction || "auto";
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[char]));
+  }
+
+  function draw() {
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const background = state.annotation?.background || "#F5EBD7";
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!state.image || !state.annotation) {
+      ctx.fillStyle = "#444";
+      ctx.font = "28px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("請載入場景圖片與 annotation", canvas.width / 2, canvas.height / 2);
+      ctx.restore();
+      return;
+    }
+    if ($("viewMode").value === "preview") drawPreview(); else drawEditor();
+    $("timeLabel").textContent = `${(state.currentMs/1000).toFixed(2)} / ${(sceneDuration()/1000).toFixed(2)} 秒`;
+    ctx.restore();
+  }
+
+  function drawEditor() {
+    ctx.drawImage(state.image, 0, 0, canvas.width, canvas.height);
+    elements().forEach((item, index) => {
+      const region = item.region;
+      const color = palette[index % palette.length];
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color + "28";
+      ctx.lineWidth = index === state.selected ? 5 : 3;
+      ctx.fillRect(region.x, region.y, region.width, region.height);
+      ctx.strokeRect(region.x, region.y, region.width, region.height);
+      ctx.fillStyle = color;
+      ctx.fillRect(region.x, Math.max(0, region.y - 30), Math.min(region.width, 360), 30);
+      ctx.fillStyle = "white";
+      ctx.font = "bold 18px sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${index + 1}. ${item.label || item.id}`, region.x + 8, Math.max(15, region.y - 15), Math.max(20, region.width - 14));
+      if (index === state.selected) drawHandles(region, color);
+      ctx.restore();
+    });
+  }
+
+  function drawHandles(region, color) {
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    corners(region).forEach(point => {
+      ctx.beginPath();
+      ctx.rect(point.x - 8, point.y - 8, 16, 16);
+      ctx.fill(); ctx.stroke();
+    });
+  }
+
+  function drawPreview() {
+    const laterBySequence = sortedElements();
+    laterBySequence.forEach((item, orderedIndex) => {
+      const start = Number(item.reveal?.startMs || 0);
+      const duration = Math.max(1, Number(item.reveal?.durationMs || 1));
+      if (state.currentMs < start) return;
+      const progress = clamp((state.currentMs - start) / duration, 0, 1);
+      const off = document.createElement("canvas");
+      off.width = canvas.width; off.height = canvas.height;
+      const oc = off.getContext("2d");
+      oc.drawImage(state.image, 0, 0, canvas.width, canvas.height);
+      oc.globalCompositeOperation = "destination-in";
+      drawProgressMask(oc, item.region, item.reveal?.direction || "auto", progress);
+      if ((item.maskPolicy || "subtract-later") === "subtract-later") {
+        oc.globalCompositeOperation = "destination-out";
+        laterBySequence.slice(orderedIndex + 1).forEach(later => {
+          const r = later.region; oc.fillRect(r.x, r.y, r.width, r.height);
+        });
+      }
+      if (["subtract-later", "explicit"].includes(item.maskPolicy || "subtract-later")) {
+        oc.globalCompositeOperation = "destination-out";
+        (item.reveal?.protectedRegions || []).forEach(r => oc.fillRect(r.x, r.y, r.width, r.height));
+      }
+      ctx.drawImage(off, 0, 0);
+    });
+  }
+
+  function drawProgressMask(maskCtx, region, direction, progress) {
+    const {x,y,width,height} = region;
+    maskCtx.fillStyle = "black";
+    if (direction === "auto") direction = width >= height ? "left_to_right" : "top_to_bottom";
+    if (direction === "right_to_left") maskCtx.fillRect(x + width * (1-progress), y, width * progress, height);
+    else if (direction === "top_to_bottom") maskCtx.fillRect(x, y, width, height * progress);
+    else if (direction === "bottom_to_top") maskCtx.fillRect(x, y + height * (1-progress), width, height * progress);
+    else if (direction === "radial") {
+      maskCtx.beginPath();
+      maskCtx.arc(x + width/2, y + height/2, Math.hypot(width, height) * .55 * progress, 0, Math.PI * 2);
+      maskCtx.fill();
+    } else maskCtx.fillRect(x, y, width * progress, height);
+  }
+
+  function corners(region) {
+    return [
+      { key:"nw", x:region.x, y:region.y },
+      { key:"ne", x:region.x+region.width, y:region.y },
+      { key:"se", x:region.x+region.width, y:region.y+region.height },
+      { key:"sw", x:region.x, y:region.y+region.height },
+    ];
+  }
+  function eventPoint(event) {
+    const rect = canvas.getBoundingClientRect();
+    return { x:(event.clientX-rect.left)*canvas.width/rect.width, y:(event.clientY-rect.top)*canvas.height/rect.height };
+  }
+  function hitTest(point) {
+    for (let index = elements().length - 1; index >= 0; index--) {
+      const r = elements()[index].region;
+      for (const corner of corners(r)) if (Math.hypot(point.x-corner.x, point.y-corner.y) <= 14) return { index, mode:"resize", corner:corner.key };
+      if (point.x >= r.x && point.x <= r.x+r.width && point.y >= r.y && point.y <= r.y+r.height) return { index, mode:"move" };
+    }
+    return null;
+  }
+
+  canvas.addEventListener("pointerdown", event => {
+    if ($("viewMode").value !== "edit" || !state.annotation) return;
+    const point = eventPoint(event), hit = hitTest(point);
+    if (!hit) return;
+    state.selected = hit.index;
+    const r = selectedElement().region;
+    state.drag = { ...hit, start:point, original:{...r} };
+    canvas.setPointerCapture(event.pointerId);
+    refreshAll();
+  });
+  canvas.addEventListener("pointermove", event => {
+    if (!state.drag) return;
+    const point = eventPoint(event), dx = point.x-state.drag.start.x, dy = point.y-state.drag.start.y;
+    const r = selectedElement().region, o = state.drag.original;
+    if (state.drag.mode === "move") {
+      r.x = Math.round(clamp(o.x+dx, 0, canvas.width-o.width));
+      r.y = Math.round(clamp(o.y+dy, 0, canvas.height-o.height));
+    } else {
+      let x0=o.x, y0=o.y, x1=o.x+o.width, y1=o.y+o.height;
+      if (state.drag.corner.includes("w")) x0=clamp(o.x+dx,0,x1-8); else x1=clamp(o.x+o.width+dx,x0+8,canvas.width);
+      if (state.drag.corner.includes("n")) y0=clamp(o.y+dy,0,y1-8); else y1=clamp(o.y+o.height+dy,y0+8,canvas.height);
+      Object.assign(r,{x:Math.round(x0),y:Math.round(y0),width:Math.round(x1-x0),height:Math.round(y1-y0)});
+    }
+    setDirty(); fillEditor(); draw();
+  });
+  canvas.addEventListener("pointerup", event => { state.drag=null; try { canvas.releasePointerCapture(event.pointerId); } catch {} });
+
+  function bindField(id, apply) {
+    $(id).addEventListener("input", () => {
+      const item = selectedElement(); if (!item) return;
+      apply(item, $(id).value); setDirty(); renderElementList(); draw();
+    });
+  }
+  bindField("fId", (i,v)=>i.id=v.trim());
+  bindField("fLabel", (i,v)=>i.label=v);
+  bindField("fType", (i,v)=>i.type=v.trim()||"object");
+  bindField("fMask", (i,v)=>i.maskPolicy=v);
+  bindField("fSubjects", (i,v)=>i.subjectIds=v.split(",").map(x=>x.trim()).filter(Boolean));
+  bindField("fRole", (i,v)=>i.narrativeRole=v);
+  bindField("fSubtitle", (i,v)=>i.subtitle=v);
+  bindField("fX", (i,v)=>i.region.x=clamp(Math.round(Number(v)||0),0,canvas.width-i.region.width));
+  bindField("fY", (i,v)=>i.region.y=clamp(Math.round(Number(v)||0),0,canvas.height-i.region.height));
+  bindField("fW", (i,v)=>i.region.width=clamp(Math.round(Number(v)||1),1,canvas.width-i.region.x));
+  bindField("fH", (i,v)=>i.region.height=clamp(Math.round(Number(v)||1),1,canvas.height-i.region.y));
+  bindField("fStart", (i,v)=>i.reveal.startMs=Math.max(0,Math.round(Number(v)||0)));
+  bindField("fDuration", (i,v)=>i.reveal.durationMs=Math.max(1,Math.round(Number(v)||1)));
+  bindField("fDirection", (i,v)=>i.reveal.direction=v);
+
+  $("sceneDuration").addEventListener("input", () => { if (!state.annotation) return; state.annotation.sceneDurationMs=Math.max(1,Math.round(Number($("sceneDuration").value)||1)); $("time").max=state.annotation.sceneDurationMs; setDirty(); draw(); });
+  $("finalHold").addEventListener("input", () => { if (!state.annotation) return; state.annotation.finalHoldMs=Math.max(0,Math.round(Number($("finalHold").value)||0)); setDirty(); });
+  $("coreMessage").addEventListener("input", () => { if (!state.annotation) return; state.annotation.coreMessage=$("coreMessage").value; setDirty(); });
+
+  function resequence() { elements().forEach((item,index)=>item.sequence=index+1); }
+  $("moveUp").onclick = () => { if (state.selected<=0) return; const list=elements(); [list[state.selected-1],list[state.selected]]=[list[state.selected],list[state.selected-1]]; state.selected--; resequence(); setDirty(); refreshAll(); };
+  $("moveDown").onclick = () => { const list=elements(); if (state.selected<0||state.selected>=list.length-1) return; [list[state.selected+1],list[state.selected]]=[list[state.selected],list[state.selected+1]]; state.selected++; resequence(); setDirty(); refreshAll(); };
+  $("addElement").onclick = () => {
+    if (!state.annotation) return;
+    const index=elements().length;
+    elements().push({id:`element-${index+1}`,label:`元素 ${index+1}`,sequence:index+1,type:"object",narrativeRole:"",subtitle:"",subjectIds:[],maskPolicy:"explicit",region:{x:40+index*15,y:40+index*15,width:Math.min(260,canvas.width-80),height:Math.min(200,canvas.height-80)},reveal:{direction:"auto",startMs:index*1200,durationMs:1000,protectedRegions:[]}});
+    state.selected=index; setDirty(); refreshAll();
+  };
+  $("deleteElement").onclick = () => { if (!selectedElement() || !confirm("確定刪除目前元素？")) return; elements().splice(state.selected,1); state.selected=clamp(state.selected,0,Math.max(0,elements().length-1)); resequence(); setDirty(); refreshAll(); };
+
+  $("time").addEventListener("input", () => { state.currentMs=Number($("time").value); draw(); });
+  $("viewMode").addEventListener("change", draw);
+  $("rewind").onclick = () => { state.currentMs=0; $("time").value="0"; draw(); };
+  $("play").onclick = () => {
+    state.playing=!state.playing; $("play").textContent=state.playing?"暫停":"播放";
+    if (state.playing) { if (state.currentMs>=sceneDuration()) state.currentMs=0; state.lastTick=performance.now(); requestAnimationFrame(tick); }
+  };
+  function tick(now) {
+    if (!state.playing) return;
+    state.currentMs += now-state.lastTick; state.lastTick=now;
+    if (state.currentMs>=sceneDuration()) { state.currentMs=sceneDuration(); state.playing=false; $("play").textContent="播放"; }
+    $("time").value=String(state.currentMs); draw();
+    if (state.playing) requestAnimationFrame(tick);
+  }
+
+  $("openFolder").onclick = () => openDirectory().catch(error => setStatus(`開啟資料夾失敗：${error.message}`));
+  $("openImage").onclick = () => $("imageInput").click();
+  $("openJson").onclick = () => $("jsonInput").click();
+  $("imageInput").onchange = async () => {
+    const file=$("imageInput").files[0]; if (!file) return;
+    state.image=await fileToImage(file); state.imageName=file.name; canvas.width=state.image.naturalWidth; canvas.height=state.image.naturalHeight;
+    if (state.annotation) { state.annotation.canvas={width:canvas.width,height:canvas.height}; setDirty(); }
+    setStatus(`已載入圖片：${file.name}`); refreshAll();
+  };
+  $("jsonInput").onchange = async () => {
+    const file=$("jsonInput").files[0]; if (!file) return;
+    state.annotation=normalizeAnnotation(await fileToJson(file)); state.annotationName=file.name; state.annotationHandle=null; state.selected=0; state.currentMs=0;
+    if (!state.image) { canvas.width=state.annotation.canvas.width; canvas.height=state.annotation.canvas.height; }
+    setStatus(`已載入 annotation：${file.name}`); setDirty(false); refreshAll();
+  };
+
+  async function saveJson() {
+    if (!state.annotation) return;
+    resequence();
+    const encoded=JSON.stringify(state.annotation,null,2)+"\n";
+    if (state.annotationHandle?.createWritable) {
+      const writable=await state.annotationHandle.createWritable(); await writable.write(encoded); await writable.close();
+      setDirty(false); setStatus(`已寫回：${state.annotationName}`); return;
+    }
+    downloadJson(); setStatus("目前不是資料夾寫回模式，已改為下載 JSON。");
+  }
+  function downloadJson() {
+    if (!state.annotation) return;
+    resequence();
+    const blob=new Blob([JSON.stringify(state.annotation,null,2)+"\n"],{type:"application/json"});
+    const url=URL.createObjectURL(blob); const link=document.createElement("a"); link.href=url; link.download=state.annotationName||"scene.annotation.json"; link.click(); URL.revokeObjectURL(url);
+  }
+  $("save").onclick = () => saveJson().catch(error => setStatus(`儲存失敗：${error.message}`));
+  $("download").onclick = downloadJson;
+
+  window.addEventListener("beforeunload", event => { if (state.dirty) { event.preventDefault(); event.returnValue=""; } });
+  draw();
+})();
+</script>
+</body>
+</html>

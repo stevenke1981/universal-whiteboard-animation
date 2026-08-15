@@ -1,0 +1,142 @@
+version: 1
+project:
+  name: replaceable-subject-demo
+  language: zh-TW
+  root: .
+workflow:
+  mode: auto
+  overwrite: true
+input:
+  subtitles: story.srt
+  audio: null
+  script: null
+paths:
+  scenes: scenes
+  build: build
+  output: output
+segmentation:
+  target_sec: 6
+  min_sec: 3
+  max_sec: 8
+  prefer_punctuation: true
+  gap_sec: 0.25
+canvas:
+  width: 1280
+  height: 720
+  fps: 12
+  background: '#F5EBD7'
+subject_profile:
+  mode: ensemble
+  default_id: creator
+  subjects:
+    creator:
+      kind: human
+      name: 設計師
+      replaceable: true
+      appearance:
+        outfit: orange
+      identity_lock:
+      - silhouette
+      - outfit
+      negative_constraints:
+      - 不可自動替換成猴子
+    user:
+      kind: human
+      name: 使用者
+      replaceable: true
+      appearance:
+        outfit: blue
+      identity_lock:
+      - silhouette
+      - outfit
+      negative_constraints: []
+    idea:
+      kind: concept
+      name: 想法
+      replaceable: true
+      appearance:
+        symbol: lightbulb
+      identity_lock: []
+      negative_constraints: []
+    prototype:
+      kind: product
+      name: 原型
+      replaceable: true
+      appearance:
+        shape: rounded-device
+      identity_lock:
+      - silhouette
+      negative_constraints: []
+    result:
+      kind: concept
+      name: 完成結果
+      replaceable: true
+      appearance:
+        symbol: check
+      identity_lock: []
+      negative_constraints: []
+visual:
+  preset: minimal-paper
+  line_color: '#373737'
+  accent_colors:
+  - '#D96B3B'
+  - '#3B82B8'
+  - '#E5AA3D'
+  source_text_policy: subtitles-only
+render:
+  ink_path: skeleton
+  color_fill: wipe
+  pointer: pen
+  cap_long_edge: 640
+  grid_edge: 8
+  ink_color_ratio:
+  - 2
+  - 1
+  final_hold_ms: 700
+  mask_policy: null
+  finalize_mode: union-only
+  h264: true
+finalize:
+  merge: true
+  output: output/final.mp4
+  audio: null
+  subtitles: null
+  subtitle_mode: none
+scenes:
+- scene_id: scene-01
+  start_ms: 0
+  end_ms: 5700
+  duration_ms: 5700
+  cue_range:
+  - 1
+  - 2
+  text: 設計師先把問題整理成一個清楚的想法。團隊再把想法組成可以測試的原型。
+  core_message: 從想法到原型
+  narrative_pattern: problem-solution
+  subject_bindings:
+  - creator
+  - idea
+  - prototype
+  image: scenes/scene-01-idea-to-prototype.png
+  annotation: scenes/scene-01-idea-to-prototype.annotation.json
+  output: output/scene-01.mp4
+- scene_id: scene-02
+  start_ms: 6000
+  end_ms: 11600
+  duration_ms: 5600
+  cue_range:
+  - 3
+  - 4
+  text: 使用者實際操作，找出最重要的問題。最後依回饋調整流程，讓成果真正能被使用。
+  core_message: 測試、回饋與迭代
+  narrative_pattern: test-feedback-result
+  subject_bindings:
+  - user
+  - prototype
+  - creator
+  - result
+  image: scenes/scene-02-feedback-loop.png
+  annotation: scenes/scene-02-feedback-loop.annotation.json
+  output: output/scene-02.mp4
+assumptions:
+- Demo 主體全部可替換，沒有固定猴子角色。
