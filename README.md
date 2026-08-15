@@ -138,6 +138,23 @@ python scripts/set_subject.py project.yaml \
 
 `config/default-project.yaml` 預設即為 1080p（1920×1080@30fps + `cap_long_edge: 1920`）。以 1080p 輸出時建議同步加大 `render.brush_radius`、`pointer_height` 等筆觸參數（約 1.5 倍），並以 `--full-res` 跑 `run_acceptance.py` 驗收。
 
+## 中文筆順書寫
+
+`scripts/chinese_stroke_split.py` 可把中文字拆成逐筆畫元素（type=`text-stroke`），產生場景圖、annotation 與逐筆檢查圖，直接接入渲染流程：
+
+```bash
+python scripts/chinese_stroke_split.py \
+  --text "日日是好日！" \
+  --font C:/Windows/Fonts/kaiu.ttf \
+  --size 250 --width 1920 --height 1080 \
+  --scene-id scene-01-strokes --out-dir .
+```
+
+- 輸出：`scenes/<scene-id>.png`（最終畫面）、`scenes/<scene-id>.annotation.json`（逐筆元素與時序）、`build/strokes/<scene-id>-stroke-NN.png`（單筆檢查圖）。
+- 筆順近似：從左到右、從上到下、先橫後豎、先撇後捺（楷體相連筆畫合併為筆畫組）。
+- 輪廓解析使用 freetype-py（`FT_LOAD_NO_SCALE` + `outline.decompose`），字型以 Windows 標楷體 `kaiu.ttf` 驗證；畫布輸出依實際墨水 bbox 垂直置中。
+- 時序：每筆 `durationMs = max(220, min(950, base_ms + (w+h)*ms_per_px))`（預設 `base_ms=280`、`ms_per_px=0.42`、`final_hold_ms=700`）。
+
 ## 重要檔案
 
 - `SKILL.md`：代理執行規則與工作流。
@@ -148,6 +165,7 @@ python scripts/set_subject.py project.yaml \
 - `schemas/`：project 與 annotation JSON Schema。
 - `assets/preview.html`：不需伺服器的標注預覽台。
 - `scripts/render_whiteboard.py`：通用單幕渲染器。
+- `scripts/chinese_stroke_split.py`：中文逐筆畫書寫拆分器。
 
 ## 授權
 

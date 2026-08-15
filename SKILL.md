@@ -158,7 +158,33 @@ assets/preview.html
 
 預覽台可載入資料夾或單一圖像／標注，調整區域、順序、時序、方向、字幕與主體綁定，並保存／下載 JSON。
 
-### 7. 渲染單幕
+### 7. 中文筆順書寫
+
+需要「逐筆畫書寫中文字」時，使用 `scripts/chinese_stroke_split.py` 把文字拆成逐筆元素（type=`text-stroke`），產出場景圖與 annotation，再走渲染流程：
+
+```bash
+python scripts/chinese_stroke_split.py \
+  --text "日日是好日！" \
+  --font C:/Windows/Fonts/kaiu.ttf \
+  --size 250 --width 1920 --height 1080 \
+  --scene-id scene-01-strokes --out-dir .
+```
+
+輸出：
+
+- `scenes/<scene-id>.png`：整句最終畫面（PIL 依輪廓填充）。
+- `scenes/<scene-id>.annotation.json`：逐筆元素（`reveal` 依時序），可直接 `validate_annotation.py` 驗證。
+- `build/strokes/<scene-id>-stroke-NN.png`：單筆畫檢查圖。
+
+筆順近似規則（楷體相連筆畫會合併成「筆畫組」）：
+
+- 從左到右、從上到下（`x0`、`y0` 排序）。
+- 先橫後豎（`w ≥ h` 優先於 `w < h`）。
+- 橫豎相交、先橫後豎；左右結構、先左後右；上下結構、先上後下。
+
+字型需求：需要能拆出輪廓的 TTF（Windows 標楷體 `kaiu.ttf` 已驗證）；輪廓解析使用 freetype-py（`FT_LOAD_NO_SCALE` 取字體單位，再依 `size/upem` 縮放）。若系統缺少 freetype 請先 `python scripts/prepare_env.py`。
+
+### 8. 渲染單幕
 
 ```bash
 python scripts/render_whiteboard.py \
@@ -176,7 +202,7 @@ python scripts/render_whiteboard.py \
 
 全清成片建議 30 fps、長邊 1080 或 1920。`--cap-long-edge`（或專案 `render.cap_long_edge`）大於等於畫布長邊才會保留原解析度（1920×1080 畫布請設 1920，1280×720 請設 1280；0 不縮放）；低於畫布長邊會縮小輸出。線稿不清楚時用 `grid`；輪廓清楚時用 `skeleton`。
 
-### 8. 批次與完稿
+### 9. 批次與完稿
 
 ```bash
 python scripts/batch_render.py project.yaml
