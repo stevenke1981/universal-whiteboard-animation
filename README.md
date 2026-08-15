@@ -126,6 +126,18 @@ python scripts/set_subject.py project.yaml \
   --kind product --name "智慧裝置" --dry-run
 ```
 
+### 解析度：720p 與 1080p
+
+全清成片支援 720p（1280×720）與 1080p（1920×1080）。輸出解析度由 `canvas` 與 `render.cap_long_edge` 共同決定：
+
+- `canvas.width / height`：場景圖與畫布尺寸。
+- `render.cap_long_edge`：渲染時長邊上限；**大於等於畫布長邊即保留原始解析度**，`0` 表示完全不縮放。
+  - 1080p 畫布（1920×1080）→ `cap_long_edge: 1920`
+  - 720p 畫布（1280×720）→ `cap_long_edge: 1280`
+  - 低成本預覽 → `cap_long_edge: 640`（會縮小輸出）
+
+`config/default-project.yaml` 預設即為 1080p（1920×1080@30fps + `cap_long_edge: 1920`）。以 1080p 輸出時建議同步加大 `render.brush_radius`、`pointer_height` 等筆觸參數（約 1.5 倍），並以 `--full-res` 跑 `run_acceptance.py` 驗收。
+
 ## 重要檔案
 
 - `SKILL.md`：代理執行規則與工作流。

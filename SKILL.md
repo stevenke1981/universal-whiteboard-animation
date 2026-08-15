@@ -174,7 +174,7 @@ python scripts/render_whiteboard.py \
 --fps 15 --cap-long-edge 640
 ```
 
-全清成片建議 30 fps、長邊 1080 或 1920。線稿不清楚時用 `grid`；輪廓清楚時用 `skeleton`。
+全清成片建議 30 fps、長邊 1080 或 1920。`--cap-long-edge`（或專案 `render.cap_long_edge`）大於等於畫布長邊才會保留原解析度（1920×1080 畫布請設 1920，1280×720 請設 1280；0 不縮放）；低於畫布長邊會縮小輸出。線稿不清楚時用 `grid`；輪廓清楚時用 `skeleton`。
 
 ### 8. 批次與完稿
 

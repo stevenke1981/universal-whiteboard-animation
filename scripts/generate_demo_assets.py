@@ -244,7 +244,7 @@ def main() -> int:
             },
         },
         "visual": {"preset": "minimal-paper", "line_color": INK, "accent_colors": [ORANGE, BLUE, YELLOW], "source_text_policy": "subtitles-only"},
-        "render": {"ink_path": "skeleton", "color_fill": "wipe", "pointer": "pen", "cap_long_edge": 640, "grid_edge": 8, "ink_color_ratio": [2, 1], "final_hold_ms": 700, "mask_policy": None, "finalize_mode": "union-only", "h264": True},
+        "render": {"ink_path": "skeleton", "color_fill": "wipe", "pointer": "pen", "cap_long_edge": 1280, "grid_edge": 8, "ink_color_ratio": [2, 1], "final_hold_ms": 700, "mask_policy": None, "finalize_mode": "union-only", "h264": True},
         "finalize": {"merge": True, "output": "output/final.mp4", "audio": None, "subtitles": None, "subtitle_mode": "none"},
         "scenes": [
             {"scene_id": "scene-01", "start_ms": 0, "end_ms": 5700, "duration_ms": 5700, "cue_range": [1, 2], "text": "設計師先把問題整理成一個清楚的想法。團隊再把想法組成可以測試的原型。", "core_message": "從想法到原型", "narrative_pattern": "problem-solution", "subject_bindings": ["creator", "idea", "prototype"], "image": "scenes/scene-01-idea-to-prototype.png", "annotation": "scenes/scene-01-idea-to-prototype.annotation.json", "output": "output/scene-01.mp4"},

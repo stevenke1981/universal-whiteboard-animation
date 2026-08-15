@@ -38,7 +38,7 @@ render:
   ink_path: skeleton
   color_fill: wipe
   pointer: pen
-  cap_long_edge: 1080
+  cap_long_edge: 1920
   grid_edge: 10
   ink_color_ratio: [2, 1]
   final_hold_ms: 700
