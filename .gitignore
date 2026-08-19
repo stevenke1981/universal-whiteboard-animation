@@ -9,6 +9,7 @@ __pycache__/
 *_raw.mp4
 output/
 build/
+work/
 .tmp-handpath/
 .DS_Store
 Thumbs.db
