@@ -78,17 +78,25 @@ def _load_face(font_path: str) -> freetype.Face:
     return freetype.Face(font_path)
 
 
-def decompose_contours(font_path: str, char: str, upem: int,
-                       scale: float, origin: tuple[float, float],
+def decompose_contours(font_path: str, char: str, pixel_size: float,
+                       origin: tuple[float, float] | float,
+                       extra: tuple[float, float] | None = None,
                        ) -> list[list[tuple[float, float]]]:
-    """以 FreeType 展開字元輪廓（composite/隱含點/曲線自動處理），
-    回傳每筆畫的輪廓點列（字體單位→畫布像素座標）。"""
-    del upem  # 保留參數以相容既有測試呼叫。
+    """展開字元輪廓到畫布像素。
+
+    新呼叫：decompose_contours(font, char, pixel_size, (pen_x, baseline_y))
+    舊呼叫：decompose_contours(font, char, upem, scale, origin)
+    使用 set_pixel_sizes，避免 FT_LOAD_NO_SCALE 把楷體複合字拆歪。
+    """
+    if extra is not None:
+        pixel_size = float(pixel_size) * float(origin)  # type: ignore[arg-type]
+        origin = extra
+    pen_x, baseline_y = origin  # type: ignore[misc]
     face = _load_face(font_path)
-    face.load_char(char, freetype.FT_LOAD_NO_SCALE | freetype.FT_LOAD_NO_BITMAP
-                   | freetype.FT_LOAD_NO_HINTING)
+    face.set_pixel_sizes(0, max(1, int(round(float(pixel_size)))))
+    face.load_char(char, freetype.FT_LOAD_NO_BITMAP | freetype.FT_LOAD_NO_HINTING)
     outline = face.glyph.outline
-    ox, oy = origin
+    scale = 1.0 / 64.0
     contours: list[list[tuple[float, float]]] = []
     current: list[tuple[float, float]] = []
 
@@ -98,7 +106,7 @@ def decompose_contours(font_path: str, char: str, upem: int,
         current.clear()
 
     def _to_px(p) -> tuple[float, float]:
-        return (ox + p.x * scale, oy - p.y * scale)
+        return (pen_x + p.x * scale, baseline_y - p.y * scale)
 
     def move(control, _ctx) -> None:
         _flush()
@@ -118,6 +126,25 @@ def decompose_contours(font_path: str, char: str, upem: int,
     return contours
 
 
+def signed_area(pts: list[tuple[float, float]]) -> float:
+    total = 0.0
+    for (x1, y1), (x2, y2) in zip(pts, pts[1:] + pts[:1]):
+        total += x1 * y2 - x2 * y1
+    return total / 2.0
+
+
+def ink_contours(contours: list[list[tuple[float, float]]], min_area: float = 12.0) -> tuple[list, list]:
+    """分開實心筆畫與孔洞；孔洞不單獨當一筆。"""
+    usable = [c for c in contours if abs(signed_area(c)) >= min_area]
+    if not usable:
+        return [], []
+    areas = [signed_area(c) for c in usable]
+    sign = 1.0 if max(areas, key=abs) > 0 else -1.0
+    ink = [c for c, area in zip(usable, areas) if area * sign > 0]
+    holes = [c for c, area in zip(usable, areas) if area * sign < 0]
+    return ink, holes
+
+
 def stroke_key(bbox: tuple[float, float, float, float], char_height: float):
     """筆順排序鍵（口訣近似）。"""
     x0, y0, x1, y1 = bbox
@@ -129,14 +156,16 @@ def stroke_key(bbox: tuple[float, float, float, float], char_height: float):
 
 def plan_layout(text: str, font_path: str, size: int, width: int, height: int,
                 char_gap: float = 0.0) -> list[tuple[float, float]]:
-    """回傳每字的畫布左上角位置（整句置中、逐字由左至右）。"""
+    """回傳每字的 pen 位置（x, baseline）。整句水平置中。"""
     img_font = ImageFont.truetype(font_path, size)
+    ascent, descent = img_font.getmetrics()
     total = sum(img_font.getlength(ch) for ch in text) + char_gap * max(0, len(text) - 1)
     x = (width - total) / 2.0
-    y = (height - size) / 2.0 - size * 0.06
+    y_top = (height - (ascent + descent)) / 2.0
+    baseline = y_top + ascent
     origins = []
     for ch in text:
-        origins.append((x, y))
+        origins.append((x, baseline))
         x += img_font.getlength(ch) + char_gap
     return origins
 
@@ -221,9 +250,6 @@ def split_scene(*, text: str, font_path: str, size: int, width: int, height: int
                 final_hold_ms: int = 700, scene_id: str = "scene-01",
                 out_dir: str | Path = ".", write_stroke_previews: bool = True) -> dict:
     """主流程：拆筆畫 → 排序 → 疊加場景圖 → annotation JSON。回傳摘要 dict。"""
-    face = _load_face(font_path)
-    upem = int(face.units_per_EM)
-    scale = size / upem
     origins = plan_layout(text, font_path, size, width, height)
 
     image = Image.new("RGB", (width, height), bg)
@@ -235,9 +261,9 @@ def split_scene(*, text: str, font_path: str, size: int, width: int, height: int
     build_strokes.mkdir(parents=True, exist_ok=True)
 
     # 第一遍：拆全部輪廓，計算整句墨水 bbox 做垂直置中
-    all_contours: list[list[tuple[float, float]]] = []
+    all_contours: list[list[list[tuple[float, float]]]] = []
     for ci, ch in enumerate(text):
-        contours = decompose_contours(font_path, ch, upem, scale, origins[ci])
+        contours = decompose_contours(font_path, ch, size, origins[ci])
         if not contours:
             raise ValueError(f"拆不到輪廓: {ch!r}")
         all_contours.append(contours)
@@ -249,9 +275,11 @@ def split_scene(*, text: str, font_path: str, size: int, width: int, height: int
         all_contours = [[[(x, y + dy) for x, y in c] for c in cs] for cs in all_contours]
 
     for ci, ch in enumerate(text):
-        contours = all_contours[ci]
+        ink_cs, holes = ink_contours(all_contours[ci])
+        if not ink_cs:
+            raise ValueError(f"拆不到實心筆畫: {ch!r}")
         char_height = size * 0.95
-        sorted_contours = sorted(enumerate(contours), key=lambda it: stroke_key(
+        sorted_contours = sorted(enumerate(ink_cs), key=lambda it: stroke_key(
             (min(p[0] for p in it[1]), min(p[1] for p in it[1]),
              max(p[0] for p in it[1]), max(p[1] for p in it[1])), char_height))
 
@@ -286,6 +314,8 @@ def split_scene(*, text: str, font_path: str, size: int, width: int, height: int
                 },
             })
             start_ms += duration
+        for hole in holes:
+            draw.polygon([(round(x), round(y)) for x, y in hole], fill=bg)
 
     scene_duration = start_ms + final_hold_ms
     scene_path = Path(out_dir) / "scenes" / f"{scene_id}.png"
