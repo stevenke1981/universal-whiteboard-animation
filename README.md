@@ -1,5 +1,7 @@
 # Universal Whiteboard Animation Skill
 
+將 SRT / WebVTT / 逐字稿轉成可替換主體的白板手繪動畫（OpenCode / Codex skill）。
+
 一套可直接交給 ChatGPT Codex、OpenCode 或一般程式代理使用的通用白板動畫 Skill。
 它把 SRT / WebVTT / 逐字稿轉成依敘事順序繪製的影片，保留原專案最有價值的
 「字幕驅動、語意排序、區域遮罩、連續筆跡、持久畫布」設計，但不再綁定猴子、
@@ -128,15 +130,15 @@ python scripts/set_subject.py project.yaml \
 
 ### 解析度：720p 與 1080p
 
-全清成片支援 720p（1280×720）與 1080p（1920×1080）。輸出解析度由 `canvas` 與 `render.cap_long_edge` 共同決定：
+全清成片支援 720p（1280x720）與 1080p（1920x1080）。輸出解析度由 `canvas` 與 `render.cap_long_edge` 共同決定：
 
 - `canvas.width / height`：場景圖與畫布尺寸。
 - `render.cap_long_edge`：渲染時長邊上限；**大於等於畫布長邊即保留原始解析度**，`0` 表示完全不縮放。
-  - 1080p 畫布（1920×1080）→ `cap_long_edge: 1920`
-  - 720p 畫布（1280×720）→ `cap_long_edge: 1280`
+  - 1080p 畫布（1920x1080）→ `cap_long_edge: 1920`
+  - 720p 畫布（1280x720）→ `cap_long_edge: 1280`
   - 低成本預覽 → `cap_long_edge: 640`（會縮小輸出）
 
-`config/default-project.yaml` 預設即為 1080p（1920×1080@30fps + `cap_long_edge: 1920`）。以 1080p 輸出時建議同步加大 `render.brush_radius`、`pointer_height` 等筆觸參數（約 1.5 倍），並以 `--full-res` 跑 `run_acceptance.py` 驗收。
+`config/default-project.yaml` 預設即為 1080p（1920x1080@30fps + `cap_long_edge: 1920`）。以 1080p 輸出時建議同步加大 `render.brush_radius`、`pointer_height` 等筆觸參數（約 1.5 倍），並以 `--full-res` 跑 `run_acceptance.py` 驗收。
 
 ## 中文筆順書寫
 
@@ -153,6 +155,7 @@ python scripts/chinese_stroke_split.py \
 - 輸出：`scenes/<scene-id>.png`（最終畫面）、`scenes/<scene-id>.annotation.json`（逐筆元素與時序）、`build/strokes/<scene-id>-stroke-NN.png`（單筆檢查圖）。
 - 筆順近似：從左到右、從上到下、先橫後豎、先撇後捺（楷體相連筆畫合併為筆畫組）。
 - 輪廓解析使用 freetype-py（`FT_LOAD_NO_SCALE` + `outline.decompose`），字型以 Windows 標楷體 `kaiu.ttf` 驗證；畫布輸出依實際墨水 bbox 垂直置中。
+- 單筆檢查圖預設裁切到筆畫 bbox，避免輸出整張 1080p RGB。可用 `--no-stroke-previews` 關閉。
 - 時序：每筆 `durationMs = max(220, min(950, base_ms + (w+h)*ms_per_px))`（預設 `base_ms=280`、`ms_per_px=0.42`、`final_hold_ms=700`）。
 
 ## 重要檔案

@@ -32,11 +32,10 @@ import argparse
 import json
 import math
 import sys
+from functools import lru_cache
 from pathlib import Path
 
-import numpy as np
 import freetype
-from fontTools.ttLib import TTFont
 from PIL import Image, ImageDraw, ImageFont
 
 DEFAULT_FONT = "C:/Windows/Fonts/kaiu.ttf"
@@ -46,11 +45,6 @@ STROKE_ORDER_RULES = (
     "從左到右，從上到下；先橫後豎，先撇後捺；橫豎相交，先橫後豎；"
     "左右結構，先左後右；上下結構，先上後下。"
 )
-
-
-def _draw_decomposed(glyph_set, name: str, pen) -> None:
-    """（保留字型輪廓 debug 用；正式分解走 freetype outline.decompose）"""
-    raise NotImplementedError
 
 
 def _cubic_curve(pts, steps: int = 16) -> list[tuple[float, float]]:
@@ -79,12 +73,18 @@ def _quad_curve(pts, steps: int = 12) -> list[tuple[float, float]]:
     return out
 
 
+@lru_cache(maxsize=8)
+def _load_face(font_path: str) -> freetype.Face:
+    return freetype.Face(font_path)
+
+
 def decompose_contours(font_path: str, char: str, upem: int,
                        scale: float, origin: tuple[float, float],
                        ) -> list[list[tuple[float, float]]]:
     """以 FreeType 展開字元輪廓（composite/隱含點/曲線自動處理），
     回傳每筆畫的輪廓點列（字體單位→畫布像素座標）。"""
-    face = freetype.Face(font_path)
+    del upem  # 保留參數以相容既有測試呼叫。
+    face = _load_face(font_path)
     face.load_char(char, freetype.FT_LOAD_NO_SCALE | freetype.FT_LOAD_NO_BITMAP
                    | freetype.FT_LOAD_NO_HINTING)
     outline = face.glyph.outline
@@ -141,13 +141,38 @@ def plan_layout(text: str, font_path: str, size: int, width: int, height: int,
     return origins
 
 
+def clamp_region(x0: float, y0: float, x1: float, y1: float, width: int, height: int, padding: int) -> dict:
+    x = max(0, int(x0) - padding)
+    y = max(0, int(y0) - padding)
+    right = min(width, int(math.ceil(x1)) + padding)
+    bottom = min(height, int(math.ceil(y1)) + padding)
+    return {
+        "x": x,
+        "y": y,
+        "width": max(1, right - x),
+        "height": max(1, bottom - y),
+    }
+
+
+def _save_stroke_preview(path: Path, pts: list[tuple[float, float]], ink: str, bg: str, padding: int = 8) -> None:
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
+    w = max(1, int(math.ceil(x1 - x0)) + padding * 2)
+    h = max(1, int(math.ceil(y1 - y0)) + padding * 2)
+    image = Image.new("RGB", (w, h), bg)
+    shifted = [(round(x - x0 + padding), round(y - y0 + padding)) for x, y in pts]
+    ImageDraw.Draw(image).polygon(shifted, fill=ink)
+    image.save(path)
+
+
 def split_scene(*, text: str, font_path: str, size: int, width: int, height: int,
                 bg: str, ink: str, padding: int, base_ms: int, ms_per_px: float,
                 final_hold_ms: int = 700, scene_id: str = "scene-01",
-                out_dir: str | Path = ".") -> dict:
+                out_dir: str | Path = ".", write_stroke_previews: bool = True) -> dict:
     """主流程：拆筆畫 → 排序 → 疊加場景圖 → annotation JSON。回傳摘要 dict。"""
-    font = TTFont(font_path)
-    upem = font["head"].unitsPerEm
+    face = _load_face(font_path)
+    upem = int(face.units_per_EM)
     scale = size / upem
     origins = plan_layout(text, font_path, size, width, height)
 
@@ -186,12 +211,9 @@ def split_scene(*, text: str, font_path: str, size: int, width: int, height: int
             x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
             w, h = x1 - x0, y1 - y0
             duration = max(220, min(950, int(base_ms + (w + h) * ms_per_px)))
-            # 每筆畫進場景圖（polygon 填充）
             draw.polygon([(round(x), round(y)) for x, y in pts], fill=ink)
-            # 筆畫 mask（檢查用）
-            mask = Image.new("RGB", (width, height), bg)
-            ImageDraw.Draw(mask).polygon([(round(x), round(y)) for x, y in pts], fill=ink)
-            mask.save(build_strokes / f"{scene_id}-stroke-{seq + 1:02d}.png")
+            if write_stroke_previews:
+                _save_stroke_preview(build_strokes / f"{scene_id}-stroke-{seq + 1:02d}.png", pts, ink, bg)
 
             seq += 1
             elements.append({
@@ -203,12 +225,7 @@ def split_scene(*, text: str, font_path: str, size: int, width: int, height: int
                 "subtitle": text,
                 "subjectIds": [],
                 "maskPolicy": "explicit",
-                "region": {
-                    "x": max(0, int(x0) - padding),
-                    "y": max(0, int(y0) - padding),
-                    "width": int(w) + 2 * padding,
-                    "height": int(h) + 2 * padding,
-                },
+                "region": clamp_region(x0, y0, x1, y1, width, height, padding),
                 "reveal": {
                     "direction": "left_to_right" if w >= h else "top_to_bottom",
                     "startMs": start_ms,
@@ -265,13 +282,15 @@ def main() -> int:
     ap.add_argument("--final-hold-ms", type=int, default=700)
     ap.add_argument("--scene-id", default="scene-01")
     ap.add_argument("--out-dir", default=".")
+    ap.add_argument("--no-stroke-previews", action="store_true", help="不輸出單筆檢查圖")
     args = ap.parse_args()
 
     summary = split_scene(
         text=args.text, font_path=args.font, size=args.size,
         width=args.width, height=args.height, bg=args.bg, ink=args.ink,
         padding=args.padding, base_ms=args.base_ms, ms_per_px=args.ms_per_px,
-        final_hold_ms=args.final_hold_ms, scene_id=args.scene_id, out_dir=args.out_dir)
+        final_hold_ms=args.final_hold_ms, scene_id=args.scene_id, out_dir=args.out_dir,
+        write_stroke_previews=not args.no_stroke_previews)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 

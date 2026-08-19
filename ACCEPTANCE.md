@@ -58,3 +58,7 @@ python scripts/run_acceptance.py examples/demo/project.yaml
 - Demo 單幕：H.264、640×360、15 fps、各 6 秒。
 - Demo 合併：H.264、180 frames、12 秒。
 - `examples/demo/build/acceptance-report.json`：`valid: true`。
+
+## 實測結果（2026-08-19 熱路徑優化）
+
+- `pytest -q`：15 tests passed（含 wipe／grid／region clamp）。

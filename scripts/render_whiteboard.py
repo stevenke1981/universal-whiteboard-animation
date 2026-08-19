@@ -147,32 +147,33 @@ def allowed_mask(
 
 def _component_paths_from_grid(binary: np.ndarray, edge: int) -> list[list[tuple[int, int]]]:
     height, width = binary.shape
+    ink_y, ink_x = np.nonzero(binary)
+    if ink_y.size == 0:
+        return []
     rows = math.ceil(height / edge)
     cols = math.ceil(width / edge)
     cells = np.zeros((rows, cols), dtype=np.uint8)
-    for row in range(rows):
-        y0, y1 = row * edge, min(height, (row + 1) * edge)
-        for col in range(cols):
-            x0, x1 = col * edge, min(width, (col + 1) * edge)
-            if binary[y0:y1, x0:x1].any():
-                cells[row, col] = 1
+    cells[ink_y // edge, ink_x // edge] = 1
     count, labels = cv2.connectedComponents(cells, connectivity=8)
     paths: list[list[tuple[int, int]]] = []
+    half = edge // 2
     for label in range(1, count):
         coords = np.argwhere(labels == label)
         if coords.size == 0:
             continue
-        rows_present = sorted(set(int(row) for row, _ in coords))
+        order = np.lexsort((coords[:, 1], coords[:, 0]))
+        coords = coords[order]
+        row_starts = np.flatnonzero(np.r_[True, coords[1:, 0] != coords[:-1, 0]])
         component: list[tuple[int, int]] = []
         reverse = False
-        for row in rows_present:
-            cols_present = sorted(int(col) for r, col in coords if int(r) == row)
-            if reverse:
-                cols_present.reverse()
+        for start, end in zip(row_starts, np.r_[row_starts[1:], len(coords)]):
+            block = coords[start:end]
+            cols_present = block[::-1, 1] if reverse else block[:, 1]
             reverse = not reverse
+            row = int(block[0, 0])
+            y = min(height - 1, row * edge + half)
             for col in cols_present:
-                x = min(width - 1, col * edge + edge // 2)
-                y = min(height - 1, row * edge + edge // 2)
+                x = min(width - 1, int(col) * edge + half)
                 component.append((x, y))
         if component:
             paths.append(component)
@@ -427,34 +428,42 @@ def _wipe_mask(
     width = max(1, x1 - x0)
     height = max(1, y1 - y0)
     p = ease(progress)
-    ys, xs = np.indices(allowed.shape)
+    canvas_h, canvas_w = allowed.shape
+    mask = np.zeros((canvas_h, canvas_w), dtype=bool)
     if direction == "auto":
         direction = "left_to_right" if width >= height else "top_to_bottom"
     if direction == "right_to_left":
         boundary = x1 - int(round(width * p))
-        mask = xs >= boundary
+        mask[:, max(0, boundary) :] = True
         pointer = (max(x0, min(x1 - 1, boundary)), y0 + int((0.5 + 0.35 * math.sin(progress * 8 * math.pi)) * height))
     elif direction == "top_to_bottom":
         boundary = y0 + int(round(height * p))
-        mask = ys <= boundary
+        mask[: max(0, boundary + 1), :] = True
         pointer = (x0 + int((0.5 + 0.35 * math.sin(progress * 8 * math.pi)) * width), min(y1 - 1, boundary))
     elif direction == "bottom_to_top":
         boundary = y1 - int(round(height * p))
-        mask = ys >= boundary
+        mask[max(0, boundary) :, :] = True
         pointer = (x0 + int((0.5 + 0.35 * math.sin(progress * 8 * math.pi)) * width), max(y0, boundary))
     elif direction == "radial":
         center = (x0 + width / 2.0, y0 + height / 2.0)
-        distances = np.sqrt((xs - center[0]) ** 2 + (ys - center[1]) ** 2)
         max_distance = math.hypot(width / 2.0, height / 2.0)
-        mask = distances <= max_distance * p
+        radius = max_distance * p
+        by0 = max(0, int(math.floor(center[1] - radius)))
+        by1 = min(canvas_h, int(math.ceil(center[1] + radius)) + 1)
+        bx0 = max(0, int(math.floor(center[0] - radius)))
+        bx1 = min(canvas_w, int(math.ceil(center[0] + radius)) + 1)
+        if by1 > by0 and bx1 > bx0:
+            ys = np.arange(by0, by1, dtype=np.float32)[:, None]
+            xs = np.arange(bx0, bx1, dtype=np.float32)[None, :]
+            mask[by0:by1, bx0:bx1] = (xs - center[0]) ** 2 + (ys - center[1]) ** 2 <= radius * radius
         angle = progress * 5 * math.pi
         pointer = (
-            int(center[0] + math.cos(angle) * max_distance * p),
-            int(center[1] + math.sin(angle) * max_distance * p),
+            int(center[0] + math.cos(angle) * radius),
+            int(center[1] + math.sin(angle) * radius),
         )
     else:
         boundary = x0 + int(round(width * p))
-        mask = xs <= boundary
+        mask[:, : max(0, boundary + 1)] = True
         pointer = (min(x1 - 1, boundary), y0 + int((0.5 + 0.35 * math.sin(progress * 8 * math.pi)) * height))
     pointer = (max(0, min(allowed.shape[1] - 1, pointer[0])), max(0, min(allowed.shape[0] - 1, pointer[1])))
     return mask & allowed, pointer

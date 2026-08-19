@@ -30,16 +30,22 @@ def test_plan_layout_positions_are_ordered_and_centered() -> None:
 
 @needs_kaiu
 def test_decompose_ri_gives_six_contours() -> None:
-    from fontTools.ttLib import TTFont
-
-    upem = TTFont(str(KAIU))["head"].unitsPerEm
-    scale = 100 / upem
-    contours = decompose_contours(str(KAIU), "日", upem, scale, (50.0, 100.0))
+    contours = decompose_contours(str(KAIU), "日", 1000, 100 / 1000, (50.0, 100.0))
     # 標楷體「日」= 6 條輪廓（外框、內框、兩短橫 ×2 結構）
     assert len(contours) == 6
     for pts in contours:
         assert len(pts) >= 3
         assert all(isinstance(x, float) and isinstance(y, float) for x, y in pts)
+
+
+def test_clamp_region_stays_inside_canvas() -> None:
+    from chinese_stroke_split import clamp_region
+
+    region = clamp_region(-10, -4, 650, 370, 640, 360, padding=14)
+    assert region["x"] >= 0 and region["y"] >= 0
+    assert region["x"] + region["width"] <= 640
+    assert region["y"] + region["height"] <= 360
+    assert region["width"] >= 1 and region["height"] >= 1
 
 
 @needs_kaiu

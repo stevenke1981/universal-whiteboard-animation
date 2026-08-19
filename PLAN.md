@@ -19,3 +19,9 @@
 4. 支援 SVG 路徑與真正筆畫順序，提升 logo、文字與技術圖品質。
 5. 建立 Web UI：專案管理、字幕時間軸、角色庫、批次重算與 GPU 遠端佇列。
 6. 加入 Whisper/Qwen ASR，直接從音訊產生時間戳字幕。
+
+## 2026-08-19 熱路徑優化
+
+- 渲染 wipe 不再對整張畫布呼叫 `np.indices`；grid 路徑改為 ink-pixel 索引。
+- 中文拆筆快取 FreeType face，region 強制夾在畫布內，檢查圖改裁切輸出。
+- `requirements.txt` 補上 `freetype-py` / `fonttools`。

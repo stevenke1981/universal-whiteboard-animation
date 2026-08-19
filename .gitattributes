@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.md text working-tree-encoding=UTF-8
+*.py text
+*.yaml text
+*.yml text
+*.json text
+*.txt text
+*.png binary
+*.jpg binary
+*.mp4 binary
