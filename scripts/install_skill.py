@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
-EXCLUDE_NAMES = {".venv", ".git", "__pycache__", "build", "output"}
+EXCLUDE_NAMES = {".venv", ".git", "__pycache__", "build", "output", ".tmp-handpath", ".pytest_cache"}
 
 
 def ignore(directory: str, names: list[str]) -> set[str]:

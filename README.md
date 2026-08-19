@@ -31,10 +31,17 @@ python scripts/prepare_env.py
 <ENV_PY> scripts/run_acceptance.py examples/demo/project.yaml
 ```
 
+中文一鍵書寫：
+
+```bash
+<ENV_PY> scripts/run_pipeline.py --text "日日是好日！" --out-dir work/ri --low-res
+```
+
 輸出位置：
 
 ```text
 examples/demo/output/
+work/ri/output/final.mp4
 ```
 
 ## 建立自己的專案

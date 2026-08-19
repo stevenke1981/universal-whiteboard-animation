@@ -1,6 +1,6 @@
 ---
 name: universal-whiteboard-animation
-description: 將 SRT、VTT、逐字稿或短影音文案轉成可替換人物／動物／物件／產品／抽象概念的白板手繪動畫。流程包含語意分幕、可替換主體設定、統一視覺提示詞、像素級區域標注、遮罩防洩漏、連續筆跡渲染、驗收、音訊與字幕完稿。當使用者要求「SRT 做白板動畫」「字幕轉手繪動畫」「逐字稿做解說動畫」「讓角色可替換」「製作白板短片」時觸發。
+description: Use when SRT/字幕/逐字稿要做白板手繪動畫。可替換主體、中文逐筆書寫、一鍵 run_pipeline。
 ---
 
 # 通用 SRT 白板動畫 Skill
@@ -162,7 +162,14 @@ assets/preview.html
 
 ### 7. 中文筆順書寫
 
-需要「逐筆畫書寫中文字」時，使用 `scripts/chinese_stroke_split.py` 把文字拆成逐筆元素（type=`text-stroke`），產出場景圖與 annotation，再走渲染流程：
+需要「逐筆畫書寫中文字」時，優先走一鍵管線：
+
+```bash
+python scripts/run_pipeline.py --text "日日是好日！" --out-dir work/ri --low-res
+python scripts/run_pipeline.py --source story.srt --audio voice.wav --out-dir work/story
+```
+
+或只用拆筆器：
 
 ```bash
 python scripts/chinese_stroke_split.py \
