@@ -155,6 +155,7 @@ python scripts/chinese_stroke_split.py \
 - 輸出：`scenes/<scene-id>.png`（最終畫面）、`scenes/<scene-id>.annotation.json`（逐筆元素與時序）、`build/strokes/<scene-id>-stroke-NN.png`（單筆檢查圖）。
 - 筆順近似：從左到右、從上到下、先橫後豎、先撇後捺（楷體相連筆畫合併為筆畫組）。
 - 輪廓解析使用 freetype-py（`FT_LOAD_NO_SCALE` + `outline.decompose`），字型以 Windows 標楷體 `kaiu.ttf` 驗證；畫布輸出依實際墨水 bbox 垂直置中。
+- 每筆寫入 `handPath.contour`（真實輪廓）與 `handPath.points`（書寫中線）；渲染時沿中線落墨，不再對中文筆畫猜 grid。
 - 單筆檢查圖預設裁切到筆畫 bbox，避免輸出整張 1080p RGB。可用 `--no-stroke-previews` 關閉。
 - 時序：每筆 `durationMs = max(220, min(950, base_ms + (w+h)*ms_per_px))`（預設 `base_ms=280`、`ms_per_px=0.42`、`final_hold_ms=700`）。
 

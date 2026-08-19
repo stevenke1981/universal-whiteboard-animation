@@ -96,7 +96,15 @@ def test_split_scene_ri_smoke(tmp_path: Path) -> None:
         assert r["y"] + r["height"] <= 360
         assert e["reveal"]["direction"] in ("left_to_right", "top_to_bottom")
         assert 220 <= e["reveal"]["durationMs"] <= 950
-        assert e["reveal"]["startMs"] == data["sceneDurationMs"] - e["reveal"]["durationMs"] or True
+        path = e["handPath"]
+        assert path["kind"] == "stroke-centerline"
+        assert len(path["contour"]) >= 3
+        assert len(path["points"]) >= 2
+        assert path["start"] == path["points"][0]
+        assert path["end"] == path["points"][-1]
+        px, py = path["points"][0]
+        assert r["x"] - 8 <= px <= r["x"] + r["width"] + 8
+        assert r["y"] - 8 <= py <= r["y"] + r["height"] + 8
 
 
 @needs_kaiu

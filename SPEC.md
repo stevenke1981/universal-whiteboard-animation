@@ -43,6 +43,7 @@
 - 已揭示像素持久保留。
 - 指標／筆尖只疊加在當前輸出幀，不寫入持久畫布。
 - 可使用 grid 或 morphological skeleton 路徑。
+- 若元素含 `handPath.points`，墨水路徑優先使用該中線；`handPath.contour` 作為精確允許遮罩。
 
 ## 8. 完稿
 

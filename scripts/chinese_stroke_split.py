@@ -141,6 +141,56 @@ def plan_layout(text: str, font_path: str, size: int, width: int, height: int,
     return origins
 
 
+def _round_point(point: tuple[float, float]) -> list[float]:
+    return [round(float(point[0]), 2), round(float(point[1]), 2)]
+
+
+def contour_centerline(pts: list[tuple[float, float]], horizontal: bool) -> list[list[float]]:
+    """沿筆畫長軸取掃描線質心，作為書寫中線。"""
+    if len(pts) < 3:
+        return [_round_point(p) for p in pts]
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    x0, y0 = math.floor(min(xs)), math.floor(min(ys))
+    x1, y1 = math.ceil(max(xs)), math.ceil(max(ys))
+    width = max(1, x1 - x0 + 1)
+    height = max(1, y1 - y0 + 1)
+    image = Image.new("1", (width, height), 0)
+    ImageDraw.Draw(image).polygon([(round(x - x0), round(y - y0)) for x, y in pts], fill=1)
+    pixels = image.load()
+    raw: list[list[float]] = []
+    if horizontal:
+        for x in range(width):
+            hits = [y for y in range(height) if pixels[x, y]]
+            if hits:
+                raw.append([x0 + x, y0 + (sum(hits) / len(hits))])
+    else:
+        for y in range(height):
+            hits = [x for x in range(width) if pixels[x, y]]
+            if hits:
+                raw.append([x0 + (sum(hits) / len(hits)), y0 + y])
+    if len(raw) < 2:
+        return [_round_point(pts[0]), _round_point(pts[len(pts) // 2])]
+    step = max(1, len(raw) // 80)
+    sampled = raw[::step]
+    if sampled[-1] != raw[-1]:
+        sampled.append(raw[-1])
+    return [_round_point((x, y)) for x, y in sampled]
+
+
+def build_hand_path(pts: list[tuple[float, float]], horizontal: bool) -> dict:
+    contour = [_round_point(p) for p in pts]
+    points = contour_centerline(pts, horizontal)
+    return {
+        "kind": "stroke-centerline",
+        "easing": "easeInOut",
+        "contour": contour,
+        "points": points,
+        "start": points[0],
+        "end": points[-1],
+    }
+
+
 def clamp_region(x0: float, y0: float, x1: float, y1: float, width: int, height: int, padding: int) -> dict:
     x = max(0, int(x0) - padding)
     y = max(0, int(y0) - padding)
@@ -210,6 +260,7 @@ def split_scene(*, text: str, font_path: str, size: int, width: int, height: int
             ys = [p[1] for p in pts]
             x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
             w, h = x1 - x0, y1 - y0
+            horizontal = w >= h
             duration = max(220, min(950, int(base_ms + (w + h) * ms_per_px)))
             draw.polygon([(round(x), round(y)) for x, y in pts], fill=ink)
             if write_stroke_previews:
@@ -226,8 +277,9 @@ def split_scene(*, text: str, font_path: str, size: int, width: int, height: int
                 "subjectIds": [],
                 "maskPolicy": "explicit",
                 "region": clamp_region(x0, y0, x1, y1, width, height, padding),
+                "handPath": build_hand_path(pts, horizontal),
                 "reveal": {
-                    "direction": "left_to_right" if w >= h else "top_to_bottom",
+                    "direction": "left_to_right" if horizontal else "top_to_bottom",
                     "startMs": start_ms,
                     "durationMs": duration,
                     "protectedRegions": [],

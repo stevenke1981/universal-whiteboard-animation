@@ -25,3 +25,4 @@
 - 渲染 wipe 不再對整張畫布呼叫 `np.indices`；grid 路徑改為 ink-pixel 索引。
 - 中文拆筆快取 FreeType face，region 強制夾在畫布內，檢查圖改裁切輸出。
 - `requirements.txt` 補上 `freetype-py` / `fonttools`。
+- 中文拆筆寫入 `handPath.contour` 與掃描線中線 `handPath.points`；渲染優先沿中線落墨。

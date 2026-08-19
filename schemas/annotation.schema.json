@@ -86,9 +86,12 @@
         "handPath": {
           "type": "object",
           "properties": {
+            "kind": {"type": "string"},
             "start": {"$ref": "#/$defs/point"},
             "end": {"$ref": "#/$defs/point"},
-            "easing": {"type": "string", "default": "easeInOut"}
+            "easing": {"type": "string", "default": "easeInOut"},
+            "points": {"type": "array", "items": {"$ref": "#/$defs/point"}, "minItems": 2},
+            "contour": {"type": "array", "items": {"$ref": "#/$defs/point"}, "minItems": 3}
           },
           "additionalProperties": true
         }

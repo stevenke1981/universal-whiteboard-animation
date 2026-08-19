@@ -130,19 +130,71 @@ def allowed_mask(
 ) -> np.ndarray:
     reveal = element.get("reveal") or {}
     padding = int(round(reveal.get("maskPaddingPx", 0) * (sx + sy) / 2))
-    mask = np.zeros((height, width), dtype=bool)
-    x0, y0, x1, y1 = scaled_rect(element["region"], sx, sy, width, height, padding=padding)
-    mask[y0:y1, x0:x1] = True
+    contour = ((element.get("handPath") or {}).get("contour")) or []
+    if len(contour) >= 3:
+        mask = rasterize_contour(contour, sx, sy, width, height)
+        if padding > 0:
+            kernel = np.ones((padding * 2 + 1, padding * 2 + 1), np.uint8)
+            mask = cv2.dilate(mask.astype(np.uint8), kernel, iterations=1) > 0
+    else:
+        mask = np.zeros((height, width), dtype=bool)
+        x0, y0, x1, y1 = scaled_rect(element["region"], sx, sy, width, height, padding=padding)
+        mask[y0:y1, x0:x1] = True
     policy = policy_override or element.get("maskPolicy", "subtract-later")
     if policy == "subtract-later":
         for later in later_elements:
-            lx0, ly0, lx1, ly1 = scaled_rect(later["region"], sx, sy, width, height)
-            mask[ly0:ly1, lx0:lx1] = False
+            later_contour = ((later.get("handPath") or {}).get("contour")) or []
+            if len(later_contour) >= 3:
+                mask &= ~rasterize_contour(later_contour, sx, sy, width, height)
+            else:
+                lx0, ly0, lx1, ly1 = scaled_rect(later["region"], sx, sy, width, height)
+                mask[ly0:ly1, lx0:lx1] = False
     if policy in ("subtract-later", "explicit"):
         for protected in reveal.get("protectedRegions", []) or []:
             px0, py0, px1, py1 = scaled_rect(protected, sx, sy, width, height)
             mask[py0:py1, px0:px1] = False
     return mask
+
+
+def rasterize_contour(
+    contour: list,
+    sx: float,
+    sy: float,
+    width: int,
+    height: int,
+) -> np.ndarray:
+    mask = np.zeros((height, width), dtype=np.uint8)
+    points = np.array([[int(round(float(x) * sx)), int(round(float(y) * sy))] for x, y in contour], dtype=np.int32)
+    if len(points) >= 3:
+        cv2.fillPoly(mask, [points], 1)
+    return mask > 0
+
+
+def scale_path_points(points: list, sx: float, sy: float) -> list[tuple[int, int]]:
+    scaled: list[tuple[int, int]] = []
+    for point in points:
+        if not isinstance(point, (list, tuple)) or len(point) < 2:
+            continue
+        scaled.append((int(round(float(point[0]) * sx)), int(round(float(point[1]) * sy))))
+    return scaled
+
+
+def hand_path_from_element(element: dict, sx: float, sy: float) -> tuple[list[tuple[int, int]], set[int]] | None:
+    payload = element.get("handPath") or {}
+    raw_points = payload.get("points") or payload.get("contour") or []
+    if len(raw_points) < 2:
+        start, end = payload.get("start"), payload.get("end")
+        if isinstance(start, (list, tuple)) and isinstance(end, (list, tuple)):
+            raw_points = [start, end]
+        else:
+            return None
+    points = scale_path_points(raw_points, sx, sy)
+    if len(points) < 2:
+        return None
+    sampled = _resample_points(points, spacing=3.0)
+    if len(sampled) < 2:
+        sampled = [points[0], points[-1]]
+    return sampled, set()
 
 
 def _component_paths_from_grid(binary: np.ndarray, edge: int) -> list[list[tuple[int, int]]]:
@@ -668,7 +720,11 @@ def render(
             if allowed_pixels == 0:
                 warnings.append(f"{element.get('id')} 的允許遮罩為空，已輸出靜止幀。")
 
-            points, pen_lifts = build_stroke_path(ink_mask, allowed, cfg)
+            explicit = hand_path_from_element(element, sx, sy)
+            if explicit:
+                points, pen_lifts = explicit
+            else:
+                points, pen_lifts = build_stroke_path(ink_mask, allowed, cfg)
             total_frames = max(2, round(duration_ms * cfg.fps / 1000))
             weight_sum = max(1, cfg.ink_weight + cfg.color_weight)
             ink_frames = max(1, round(total_frames * cfg.ink_weight / weight_sum))

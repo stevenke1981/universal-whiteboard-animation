@@ -128,6 +128,8 @@ scene-01-idea.annotation.json
 - `reveal.startMs`、`durationMs`、`direction`
 - `reveal.protectedRegions`
 - 選用：`maskPolicy`、`zIndex`、`handPath`
+- `handPath.points`：書寫中線；有此欄時渲染器沿中線落墨，不再對該元素猜 grid／skeleton。
+- `handPath.contour`：真實輪廓，用來做精確遮罩，避免相鄰筆畫 bbox 互漏。
 
 不得只憑字幕猜座標；標注前必須實際查看圖片並取得原圖尺寸。
 
